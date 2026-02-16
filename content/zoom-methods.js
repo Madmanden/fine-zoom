@@ -33,7 +33,8 @@ const ZoomMethods = {
           font-size: ${percentage}% !important;
         }
         
-        body, body * {
+        body, main, article, section, div, header, footer, nav, aside,
+        ul, ol, dl, form, fieldset, figure, figcaption, blockquote {
           max-width: 100vw !important;
           overflow-x: hidden !important;
         }
