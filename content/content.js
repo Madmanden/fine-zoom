@@ -56,7 +56,7 @@
           method: siteConfig?.method || data.defaultMethod || 'css-zoom'
         });
       });
-      return true;
     }
+    return true;
   });
 })();
