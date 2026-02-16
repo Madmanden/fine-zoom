@@ -77,9 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const getMethodLabel = (method) => {
     const labels = {
-      'css-zoom': 'CSS Zoom',
-      'font-size': 'Font Size',
-      'transform': 'Transform'
+      'css-zoom': 'CSS Zoom (Page Scale)',
+      'font-size': 'Font Size (Text Only)',
+      'transform': 'Transform (Page Scale)'
     };
     return labels[method] || method;
   };

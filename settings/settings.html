@@ -18,24 +18,24 @@
         <h2>⚡ Default Zoom Method</h2>
         <div class="method-options">
           <label class="radio-option">
-            <input type="radio" name="defaultMethod" value="css-zoom" checked>
+            <input type="radio" name="defaultMethod" value="css-zoom">
             <div class="option-content">
-              <strong>CSS Zoom</strong>
-              <span>Simplest approach, minimal layout disruption</span>
+              <strong>CSS Zoom (Page Scale)</strong>
+              <span>Scales all page elements, not just text</span>
             </div>
           </label>
           <label class="radio-option">
-            <input type="radio" name="defaultMethod" value="font-size">
+            <input type="radio" name="defaultMethod" value="font-size" checked>
             <div class="option-content">
-              <strong>Font-Size Scaling</strong>
-              <span>More granular control, prevents overflow</span>
+              <strong>Font-Size Scaling (Text Only)</strong>
+              <span>Zooms text while leaving non-text elements alone</span>
             </div>
           </label>
           <label class="radio-option">
             <input type="radio" name="defaultMethod" value="transform">
             <div class="option-content">
-              <strong>Transform Scale</strong>
-              <span>GPU-accelerated, smooth performance</span>
+              <strong>Transform Scale (Page Scale)</strong>
+              <span>GPU-accelerated full page scaling</span>
             </div>
           </label>
         </div>

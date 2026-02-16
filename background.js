@@ -5,7 +5,8 @@ chrome.runtime.onInstalled.addListener(async () => {
     'defaultMethod',
     'defaultLevel',
     'perSiteZoom',
-    'excludedSites'
+    'excludedSites',
+    'didMigrateToFontSizeDefault'
   ]);
 
   const defaults = {
@@ -24,6 +25,33 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   if (Object.keys(toSet).length > 0) {
     await chrome.storage.local.set(toSet);
+  }
+
+  if (!existing.didMigrateToFontSizeDefault) {
+    const updates = { didMigrateToFontSizeDefault: true };
+
+    if (existing.defaultMethod === 'css-zoom') {
+      updates.defaultMethod = 'font-size';
+    }
+
+    const perSiteZoom = existing.perSiteZoom ?? {};
+    const migratedPerSiteZoom = {};
+    let hasPerSiteChanges = false;
+
+    Object.entries(perSiteZoom).forEach(([domain, config]) => {
+      if (config?.method === 'css-zoom') {
+        migratedPerSiteZoom[domain] = { ...config, method: 'font-size' };
+        hasPerSiteChanges = true;
+      } else {
+        migratedPerSiteZoom[domain] = config;
+      }
+    });
+
+    if (hasPerSiteChanges) {
+      updates.perSiteZoom = migratedPerSiteZoom;
+    }
+
+    await chrome.storage.local.set(updates);
   }
 });
 

@@ -5,9 +5,9 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 ## Features
 
 - **Three Zoom Methods:**
-  - **CSS Zoom** (default) - Simplest approach, minimal layout disruption
-  - **Font-Size Scaling** - More granular control with overflow prevention
-  - **Transform Scale** - GPU-accelerated, smooth performance
+  - **Font-Size Scaling** (default) - Text-only zoom behavior
+  - **CSS Zoom** - Full page scaling with minimal logic
+  - **Transform Scale** - GPU-accelerated full page scaling
 
 - **Per-Domain Persistence:** Your zoom preferences are saved per website
 - **No Jumpy Loading:** CSS injection happens at document start for immediate application
