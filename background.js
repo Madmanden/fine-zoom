@@ -1,10 +1,28 @@
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({
+chrome.runtime.onInstalled.addListener(async () => {
+  const existing = await chrome.storage.local.get([
+    'defaultMethod',
+    'defaultLevel',
+    'perSiteZoom',
+    'excludedSites'
+  ]);
+
+  const defaults = {
     defaultMethod: 'css-zoom',
     defaultLevel: 1.0,
     perSiteZoom: {},
     excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com']
-  });
+  };
+
+  const toSet = {};
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!(key in existing)) {
+      toSet[key] = value;
+    }
+  }
+
+  if (Object.keys(toSet).length > 0) {
+    await chrome.storage.local.set(toSet);
+  }
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
