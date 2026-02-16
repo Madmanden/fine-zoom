@@ -1,8 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const ZOOM_STEP = 0.05;
-  const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 3.0;
-
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomLevel = document.getElementById('zoomLevel');
   const zoomIn = document.getElementById('zoomIn');
@@ -58,10 +54,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const defaultLevel = data.defaultLevel ?? 1.0;
+  const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
   const siteConfig = data.perSiteZoom?.[domain];
   let currentLevel = siteConfig?.level ?? defaultLevel;
-  let currentMethod = siteConfig?.method ?? data.defaultMethod ?? 'css-zoom';
+  let currentMethod = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
 
   zoomSlider.value = currentLevel;
   zoomLevel.textContent = currentLevel.toFixed(2) + 'x';

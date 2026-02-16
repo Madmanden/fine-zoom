@@ -31,11 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       'excludedSites'
     ]);
     
-    const method = data.defaultMethod ?? 'css-zoom';
+    const method = data.defaultMethod ?? DEFAULT_METHOD;
     const radio = document.querySelector(`input[value="${method}"]`);
     if (radio) radio.checked = true;
 
-    const level = data.defaultLevel ?? 1.0;
+    const level = data.defaultLevel ?? DEFAULT_LEVEL;
     defaultLevel.value = level;
     defaultLevelDisplay.textContent = level.toFixed(2) + 'x';
 
@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   resetAll.addEventListener('click', async () => {
     if (confirm('Are you sure you want to reset all settings to defaults?')) {
       await chrome.storage.local.set({
-        defaultMethod: 'css-zoom',
-        defaultLevel: 1.0,
+        defaultMethod: DEFAULT_METHOD,
+        defaultLevel: DEFAULT_LEVEL,
         perSiteZoom: {},
         excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com']
       });

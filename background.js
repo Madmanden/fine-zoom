@@ -1,3 +1,5 @@
+importScripts('shared/constants.js');
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get([
     'defaultMethod',
@@ -7,8 +9,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   ]);
 
   const defaults = {
-    defaultMethod: 'css-zoom',
-    defaultLevel: 1.0,
+    defaultMethod: DEFAULT_METHOD,
+    defaultLevel: DEFAULT_LEVEL,
     perSiteZoom: {},
     excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com']
   };
@@ -24,10 +26,6 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.storage.local.set(toSet);
   }
 });
-
-const ZOOM_STEP = 0.05;
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 3.0;
 
 const isDomainExcluded = (domain, excludedSites) => {
   return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
@@ -64,8 +62,8 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (isDomainExcluded(domain, excludedSites)) return;
 
   const perSiteZoom = data.perSiteZoom || {};
-  const defaultLevel = data.defaultLevel ?? 1.0;
-  const defaultMethod = data.defaultMethod ?? 'css-zoom';
+  const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
+  const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
 
   const currentZoom = perSiteZoom[domain]?.level ?? defaultLevel;
 

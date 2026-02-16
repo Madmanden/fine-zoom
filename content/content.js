@@ -34,22 +34,32 @@
       if (isDomainExcluded(domain, excludedSites)) return;
 
       const siteConfig = data.perSiteZoom?.[domain];
-      const level = siteConfig?.level ?? data.defaultLevel ?? 1.0;
-      const method = siteConfig?.method ?? data.defaultMethod ?? 'css-zoom';
+      const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
+      const method = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
 
       if (level !== 1.0) {
-        applyZoom(level, method);
+        // Ensure document.documentElement exists before applying
+        if (document.documentElement) {
+          applyZoom(level, method);
+        } else {
+          // Fallback for very early execution
+          const observer = new MutationObserver(() => {
+            if (document.documentElement) {
+              applyZoom(level, method);
+              observer.disconnect();
+            }
+          });
+          observer.observe(document, { childList: true, subtree: true });
+        }
       }
     } catch (e) {
       console.error('Text Zoom: Failed to initialize', e);
     }
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeZoom);
-  } else {
-    initializeZoom();
-  }
+  // Run immediately. Since run_at is document_start, document.documentElement
+  // might not be available yet, but initializeZoom handles that.
+  initializeZoom();
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id) return;
@@ -64,8 +74,8 @@
       chrome.storage.local.get(['perSiteZoom', 'defaultLevel', 'defaultMethod'], (data) => {
         const siteConfig = data.perSiteZoom?.[domain];
         sendResponse({
-          level: siteConfig?.level ?? data.defaultLevel ?? 1.0,
-          method: siteConfig?.method ?? data.defaultMethod ?? 'css-zoom'
+          level: siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL,
+          method: siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD
         });
       });
     }
