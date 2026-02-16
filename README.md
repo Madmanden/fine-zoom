@@ -13,8 +13,8 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 - **No Jumpy Loading:** CSS injection happens at document start for immediate application
 - **Overflow Prevention:** Content stays within viewport, no horizontal scrolling
 - **Keyboard Shortcuts:**
-  - `Ctrl+Shift+Equal` / `Cmd+Shift+Equal` - Zoom in
-  - `Ctrl+Shift+Minus` / `Cmd+Shift+Minus` - Zoom out
+  - `Ctrl+Shift+Up` / `Cmd+Shift+Up` - Zoom in
+  - `Ctrl+Shift+Down` / `Cmd+Shift+Down` - Zoom out
   - `Ctrl+Shift+0` / `Cmd+Shift+0` - Reset zoom
 
 ## Installation

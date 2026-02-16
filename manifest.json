@@ -33,15 +33,15 @@
   "commands": {
     "zoom-in": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Equal",
-        "mac": "Command+Shift+Equal"
+        "default": "Ctrl+Shift+Up",
+        "mac": "Command+Shift+Up"
       },
       "description": "Zoom text in"
     },
     "zoom-out": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Minus",
-        "mac": "Command+Shift+Minus"
+        "default": "Ctrl+Shift+Down",
+        "mac": "Command+Shift+Down"
       },
       "description": "Zoom text out"
     },
