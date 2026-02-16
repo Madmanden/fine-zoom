@@ -11,6 +11,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsBtn = document.getElementById('settingsBtn');
   const zoomMethod = document.getElementById('zoomMethod');
 
+  const showError = (message) => {
+    const errorDiv = document.getElementById('errorMessage') || document.createElement('div');
+    errorDiv.id = 'errorMessage';
+    errorDiv.style.cssText = 'background: #fee; color: #c33; padding: 8px; border-radius: 4px; margin-top: 12px; font-size: 12px; text-align: center;';
+    errorDiv.textContent = message;
+    if (!document.getElementById('errorMessage')) {
+      document.querySelector('.container').appendChild(errorDiv);
+    }
+    setTimeout(() => errorDiv.remove(), 3000);
+  };
+
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
 
@@ -47,24 +58,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  const defaultLevel = data.defaultLevel ?? 1.0;
   const siteConfig = data.perSiteZoom?.[domain];
-  let currentLevel = siteConfig?.level ?? data.defaultLevel ?? 1.0;
+  let currentLevel = siteConfig?.level ?? defaultLevel;
   let currentMethod = siteConfig?.method ?? data.defaultMethod ?? 'css-zoom';
 
   zoomSlider.value = currentLevel;
   zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
   zoomMethod.value = currentMethod;
-
-  const showError = (message) => {
-    const errorDiv = document.getElementById('errorMessage') || document.createElement('div');
-    errorDiv.id = 'errorMessage';
-    errorDiv.style.cssText = 'background: #fee; color: #c33; padding: 8px; border-radius: 4px; margin-top: 12px; font-size: 12px; text-align: center;';
-    errorDiv.textContent = message;
-    if (!document.getElementById('errorMessage')) {
-      document.querySelector('.container').appendChild(errorDiv);
-    }
-    setTimeout(() => errorDiv.remove(), 3000);
-  };
 
   const updateZoom = async (level, method) => {
     currentLevel = level;
@@ -119,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   resetBtn.addEventListener('click', () => {
-    updateZoom(1.0, currentMethod);
+    updateZoom(defaultLevel, currentMethod);
   });
 
   zoomMethod.addEventListener('change', (e) => {

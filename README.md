@@ -92,7 +92,15 @@ This extension:
 - ✅ Stores all data locally on your device
 - ✅ Does not collect or transmit any data
 - ✅ Does not require internet permissions
-- ✅ Only accesses the active tab when you interact with it
+- ✅ Works entirely offline
+
+### Permissions Used
+
+- **`storage`**: To save your zoom preferences locally
+- **`activeTab`**: To apply zoom changes when you click the popup or use keyboard shortcuts
+- **`<all_urls>`**: To inject content scripts on web pages for immediate zoom application
+
+The content script runs automatically on all web pages you visit (using `document_start` timing) to prevent the "jumpy font" effect. It only reads from storage and applies CSS - no data is collected or transmitted.
 
 ## License
 
