@@ -41,10 +41,14 @@ chrome.commands.onCommand.addListener(async (command) => {
       }
     });
     
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'setZoom',
-      level: newZoom,
-      method: method
-    });
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'setZoom',
+        level: newZoom,
+        method: method
+      });
+    } catch (error) {
+      console.error('Text Zoom: Failed to apply zoom via keyboard shortcut', error);
+    }
   }
 });
