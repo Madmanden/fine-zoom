@@ -1,6 +1,16 @@
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3.0;
+
+const validateZoomLevel = (level) => {
+  const num = parseFloat(level);
+  if (!isFinite(num) || isNaN(num)) return 1.0;
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, num));
+};
+
 const ZoomMethods = {
   'css-zoom': {
     apply: (level) => {
+      const validLevel = validateZoomLevel(level);
       let style = document.getElementById('text-zoom-style');
       if (!style) {
         style = document.createElement('style');
@@ -9,7 +19,7 @@ const ZoomMethods = {
       }
       style.textContent = `
         html {
-          zoom: ${level} !important;
+          zoom: ${validLevel} !important;
         }
       `;
     },
@@ -21,13 +31,14 @@ const ZoomMethods = {
   
   'font-size': {
     apply: (level) => {
+      const validLevel = validateZoomLevel(level);
       let style = document.getElementById('text-zoom-font-style');
       if (!style) {
         style = document.createElement('style');
         style.id = 'text-zoom-font-style';
         document.documentElement.appendChild(style);
       }
-      const percentage = level * 100;
+      const percentage = validLevel * 100;
       style.textContent = `
         html {
           font-size: ${percentage}% !important;
@@ -69,6 +80,7 @@ const ZoomMethods = {
   
   'transform': {
     apply: (level) => {
+      const validLevel = validateZoomLevel(level);
       let style = document.getElementById('text-zoom-transform-style');
       if (!style) {
         style = document.createElement('style');
@@ -77,10 +89,10 @@ const ZoomMethods = {
       }
       style.textContent = `
         html {
-          transform: scale(${level}) !important;
+          transform: scale(${validLevel}) !important;
           transform-origin: top left !important;
-          width: ${100 / level}% !important;
-          height: ${100 / level}% !important;
+          width: ${100 / validLevel}% !important;
+          height: ${100 / validLevel}% !important;
           overflow-x: hidden !important;
         }
         

@@ -29,15 +29,18 @@ const ZOOM_STEP = 0.05;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3.0;
 
+const isDomainExcluded = (domain, excludedSites) => {
+  return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
+};
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) {
     return;
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
-
-  if (!tab.url) return;
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  if (!tab?.url) return;
 
   let url;
   try {
@@ -57,8 +60,8 @@ chrome.commands.onCommand.addListener(async (command) => {
     'excludedSites'
   ]);
 
-  const excludedSites = data.excludedSites || [];
-  if (excludedSites.some(site => domain.endsWith(site))) return;
+  const excludedSites = data.excludedSites ?? [];
+  if (isDomainExcluded(domain, excludedSites)) return;
 
   const perSiteZoom = data.perSiteZoom || {};
   const defaultLevel = data.defaultLevel ?? 1.0;

@@ -9,6 +9,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
 
+  const escapeHtml = (str) => {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  };
+
   const showToast = (message) => {
     toast.textContent = message;
     toast.classList.add('show');
@@ -25,16 +31,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       'excludedSites'
     ]);
     
-    const method = data.defaultMethod || 'css-zoom';
-    document.querySelector(`input[value="${method}"]`).checked = true;
-    
-    const level = data.defaultLevel || 1.0;
+    const method = data.defaultMethod ?? 'css-zoom';
+    const radio = document.querySelector(`input[value="${method}"]`);
+    if (radio) radio.checked = true;
+
+    const level = data.defaultLevel ?? 1.0;
     defaultLevel.value = level;
     defaultLevelDisplay.textContent = level.toFixed(2) + 'x';
-    
-    renderSiteList(data.perSiteZoom || {});
-    
-    const excluded = data.excludedSites || [];
+
+    renderSiteList(data.perSiteZoom ?? {});
+
+    const excluded = data.excludedSites ?? [];
     excludedSites.value = excluded.join('\n');
   };
   
@@ -47,10 +54,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     siteList.innerHTML = sites.map(([domain, config]) => `
-      <div class="site-item" data-domain="${domain}">
+      <div class="site-item" data-domain="${escapeHtml(domain)}">
         <div class="site-info">
-          <span class="site-domain">${domain}</span>
-          <span class="site-details">${config.level.toFixed(2)}x · ${getMethodLabel(config.method)}</span>
+          <span class="site-domain">${escapeHtml(domain)}</span>
+          <span class="site-details">${config.level.toFixed(2)}x · ${escapeHtml(getMethodLabel(config.method))}</span>
         </div>
         <button class="remove-site" title="Remove">×</button>
       </div>
@@ -60,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.addEventListener('click', async (e) => {
         const domain = e.target.closest('.site-item').dataset.domain;
         const data = await chrome.storage.local.get('perSiteZoom');
-        const perSiteZoom = data.perSiteZoom || {};
+        const perSiteZoom = data.perSiteZoom ?? {};
         delete perSiteZoom[domain];
         await chrome.storage.local.set({ perSiteZoom });
         renderSiteList(perSiteZoom);
