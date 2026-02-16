@@ -10,11 +10,26 @@
     return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
   };
 
+  let currentLevel = 1.0;
+  let currentMethod = DEFAULT_METHOD;
+  let debugHighlightScaledText = DEFAULT_DEBUG_HIGHLIGHT;
+
+  const applyDebugFlag = () => {
+    if (!document.documentElement) return;
+    document.documentElement.setAttribute(
+      'data-text-zoom-debug-highlight',
+      debugHighlightScaledText ? '1' : '0'
+    );
+  };
+
   const applyZoom = (level, method) => {
     if (!ZoomMethods[method]) {
       console.warn(`Text Zoom: Unknown zoom method: ${method}`);
       return;
     }
+
+    currentLevel = level;
+    currentMethod = method;
 
     Object.values(ZoomMethods).forEach(m => m.remove());
 
@@ -28,7 +43,13 @@
       const url = new URL(window.location.href);
       const domain = url.hostname;
 
-      const data = await chrome.storage.local.get(['perSiteZoom', 'defaultMethod', 'defaultLevel', 'excludedSites']);
+      const data = await chrome.storage.local.get([
+        'perSiteZoom',
+        'defaultMethod',
+        'defaultLevel',
+        'excludedSites',
+        'debugHighlightScaledText'
+      ]);
 
       const excludedSites = data.excludedSites ?? [];
       if (isDomainExcluded(domain, excludedSites)) return;
@@ -36,6 +57,8 @@
       const siteConfig = data.perSiteZoom?.[domain];
       const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
       const method = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+      debugHighlightScaledText = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
+      applyDebugFlag();
 
       if (level !== 1.0) {
         // Ensure document.documentElement exists before applying
@@ -45,6 +68,7 @@
           // Fallback for very early execution
           const observer = new MutationObserver(() => {
             if (document.documentElement) {
+              applyDebugFlag();
               applyZoom(level, method);
               observer.disconnect();
             }
@@ -60,6 +84,16 @@
   // Run immediately. Since run_at is document_start, document.documentElement
   // might not be available yet, but initializeZoom handles that.
   initializeZoom();
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (!changes.debugHighlightScaledText) return;
+    debugHighlightScaledText = changes.debugHighlightScaledText.newValue ?? DEFAULT_DEBUG_HIGHLIGHT;
+    applyDebugFlag();
+    if (currentMethod === 'font-size' && currentLevel !== 1.0) {
+      applyZoom(currentLevel, currentMethod);
+    }
+  });
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id) return;

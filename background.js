@@ -6,14 +6,16 @@ chrome.runtime.onInstalled.addListener(async () => {
     'defaultLevel',
     'perSiteZoom',
     'excludedSites',
-    'didMigrateToFontSizeDefault'
+    'didMigrateToFontSizeDefault',
+    'debugHighlightScaledText'
   ]);
 
   const defaults = {
     defaultMethod: DEFAULT_METHOD,
     defaultLevel: DEFAULT_LEVEL,
     perSiteZoom: {},
-    excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com']
+    excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
+    debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
   };
 
   const toSet = {};

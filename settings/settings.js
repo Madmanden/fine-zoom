@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const clearAllSites = document.getElementById('clearAllSites');
   const excludedSites = document.getElementById('excludedSites');
   const saveExcluded = document.getElementById('saveExcluded');
+  const debugHighlightScaledText = document.getElementById('debugHighlightScaledText');
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
 
@@ -28,7 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'defaultMethod',
       'defaultLevel',
       'perSiteZoom',
-      'excludedSites'
+      'excludedSites',
+      'debugHighlightScaledText'
     ]);
     
     const method = data.defaultMethod ?? DEFAULT_METHOD;
@@ -43,6 +45,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const excluded = data.excludedSites ?? [];
     excludedSites.value = excluded.join('\n');
+
+    debugHighlightScaledText.checked = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
   };
   
   const renderSiteList = (perSiteZoom) => {
@@ -114,6 +118,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({ excludedSites: sites });
     showToast('Excluded sites saved!');
   });
+
+  debugHighlightScaledText.addEventListener('change', async (e) => {
+    await chrome.storage.local.set({ debugHighlightScaledText: e.target.checked });
+    showToast('Debug highlight updated');
+  });
   
   resetAll.addEventListener('click', async () => {
     if (confirm('Are you sure you want to reset all settings to defaults?')) {
@@ -121,7 +130,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         defaultMethod: DEFAULT_METHOD,
         defaultLevel: DEFAULT_LEVEL,
         perSiteZoom: {},
-        excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com']
+        excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
+        debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
       });
       loadSettings();
     }
