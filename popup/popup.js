@@ -25,6 +25,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
   zoomMethod.value = currentMethod;
   
+  const showError = (message) => {
+    const errorDiv = document.getElementById('errorMessage') || document.createElement('div');
+    errorDiv.id = 'errorMessage';
+    errorDiv.style.cssText = 'background: #fee; color: #c33; padding: 8px; border-radius: 4px; margin-top: 12px; font-size: 12px; text-align: center;';
+    errorDiv.textContent = message;
+    if (!document.getElementById('errorMessage')) {
+      document.querySelector('.container').appendChild(errorDiv);
+    }
+    setTimeout(() => errorDiv.remove(), 3000);
+  };
+  
   const updateZoom = async (level, method) => {
     currentLevel = level;
     currentMethod = method;
@@ -39,11 +50,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
     
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'setZoom',
-      level: level,
-      method: method
-    });
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'setZoom',
+        level: level,
+        method: method
+      });
+    } catch (error) {
+      console.error('Text Zoom: Failed to apply zoom', error);
+      showError('Zoom saved but not applied. Refresh the page.');
+    }
   };
   
   zoomSlider.addEventListener('input', (e) => {
