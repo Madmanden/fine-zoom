@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="icon">🅩</span>
+      <h1>Text Zoom</h1>
+    </header>
+    
+    <div class="zoom-display">
+      <span id="zoomLevel">1.00x</span>
+    </div>
+    
+    <div class="slider-container">
+      <input type="range" id="zoomSlider" min="0.5" max="3.0" step="0.05" value="1.0">
+    </div>
+    
+    <div class="buttons-row">
+      <button id="zoomOut" class="zoom-btn" aria-label="Zoom out">−</button>
+      <button id="zoomIn" class="zoom-btn" aria-label="Zoom in">+</button>
+    </div>
+    
+    <div class="method-selector">
+      <label for="zoomMethod">Method:</label>
+      <select id="zoomMethod">
+        <option value="css-zoom">CSS Zoom</option>
+        <option value="font-size">Font Size</option>
+        <option value="transform">Transform Scale</option>
+      </select>
+    </div>
+    
+    <div class="actions">
+      <button id="resetBtn" class="reset-btn">Reset</button>
+      <button id="settingsBtn" class="settings-btn" title="Advanced Settings">⚙</button>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

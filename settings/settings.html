@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Zoom - Advanced Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="icon">🅩</span>
+      <h1>Text Zoom Settings</h1>
+    </header>
+    
+    <main>
+      <section class="card">
+        <h2>⚡ Default Zoom Method</h2>
+        <div class="method-options">
+          <label class="radio-option">
+            <input type="radio" name="defaultMethod" value="css-zoom" checked>
+            <div class="option-content">
+              <strong>CSS Zoom</strong>
+              <span>Simplest approach, minimal layout disruption</span>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="defaultMethod" value="font-size">
+            <div class="option-content">
+              <strong>Font-Size Scaling</strong>
+              <span>More granular control, prevents overflow</span>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="defaultMethod" value="transform">
+            <div class="option-content">
+              <strong>Transform Scale</strong>
+              <span>GPU-accelerated, smooth performance</span>
+            </div>
+          </label>
+        </div>
+      </section>
+      
+      <section class="card">
+        <h2>📊 Default Zoom Level</h2>
+        <div class="slider-group">
+          <input type="range" id="defaultLevel" min="0.5" max="3.0" step="0.05" value="1.0">
+          <span id="defaultLevelDisplay" class="level-display">1.00x</span>
+        </div>
+      </section>
+      
+      <section class="card">
+        <h2>🌐 Per-Site Zoom</h2>
+        <div id="siteList" class="site-list">
+          <p class="empty-state">No custom zoom levels set yet</p>
+        </div>
+        <button id="clearAllSites" class="btn btn-secondary">Clear All Site Settings</button>
+      </section>
+      
+      <section class="card">
+        <h2>🚫 Excluded Sites</h2>
+        <p class="description">Sites where text zoom will be disabled (one per line)</p>
+        <textarea id="excludedSites" rows="6" placeholder="youtube.com&#10;docs.google.com"></textarea>
+        <button id="saveExcluded" class="btn btn-primary">Save Excluded Sites</button>
+      </section>
+      
+      <section class="card">
+        <h2>⌨️ Keyboard Shortcuts</h2>
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <span>Zoom In</span>
+            <code>Ctrl+Shift+Equal</code>
+          </div>
+          <div class="shortcut-item">
+            <span>Zoom Out</span>
+            <code>Ctrl+Shift+Minus</code>
+          </div>
+          <div class="shortcut-item">
+            <span>Reset Zoom</span>
+            <code>Ctrl+Shift+0</code>
+          </div>
+        </div>
+        <p class="description">
+          You can customize these shortcuts in 
+          <a href="chrome://extensions/shortcuts" target="_blank">chrome://extensions/shortcuts</a>
+        </p>
+      </section>
+      
+      <section class="card actions-card">
+        <button id="resetAll" class="btn btn-danger">Reset All Settings</button>
+      </section>
+    </main>
+  </div>
+  
+  <script src="settings.js"></script>
+</body>
+</html>
