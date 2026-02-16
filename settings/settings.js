@@ -7,7 +7,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const excludedSites = document.getElementById('excludedSites');
   const saveExcluded = document.getElementById('saveExcluded');
   const resetAll = document.getElementById('resetAll');
-  
+  const toast = document.getElementById('toast');
+
+  const showToast = (message) => {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  };
+
   const loadSettings = async () => {
     const data = await chrome.storage.local.get([
       'defaultMethod',
@@ -96,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(s => s.trim())
       .filter(s => s);
     await chrome.storage.local.set({ excludedSites: sites });
-    alert('Excluded sites saved!');
+    showToast('Excluded sites saved!');
   });
   
   resetAll.addEventListener('click', async () => {
