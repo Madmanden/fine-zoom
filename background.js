@@ -33,7 +33,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   const domain = url.hostname;
   
   const data = await chrome.storage.local.get(['perSiteZoom', 'defaultLevel']);
-  const currentZoom = data.perSiteZoom[domain]?.level || data.defaultLevel;
+  const currentZoom = data.perSiteZoom?.[domain]?.level || data.defaultLevel;
   
   let newZoom = currentZoom;
   
@@ -50,7 +50,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
   
   if (newZoom !== currentZoom) {
-    const method = data.perSiteZoom[domain]?.method || 'css-zoom';
+    const method = data.perSiteZoom?.[domain]?.method || 'css-zoom';
     
     await chrome.storage.local.set({
       perSiteZoom: {
