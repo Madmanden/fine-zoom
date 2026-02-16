@@ -25,40 +25,73 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+const ZOOM_STEP = 0.05;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3.0;
+
 chrome.commands.onCommand.addListener(async (command) => {
+  if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) {
+    return;
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
-  
-  const url = new URL(tab.url);
+
+  if (!tab.url) return;
+
+  let url;
+  try {
+    url = new URL(tab.url);
+  } catch {
+    return;
+  }
+
+  if (!/^https?:$/.test(url.protocol)) return;
+
   const domain = url.hostname;
-  
-  const data = await chrome.storage.local.get(['perSiteZoom', 'defaultLevel']);
-  const currentZoom = data.perSiteZoom?.[domain]?.level || data.defaultLevel;
-  
+
+  const data = await chrome.storage.local.get([
+    'perSiteZoom',
+    'defaultLevel',
+    'defaultMethod',
+    'excludedSites'
+  ]);
+
+  const excludedSites = data.excludedSites || [];
+  if (excludedSites.some(site => domain.endsWith(site))) return;
+
+  const perSiteZoom = data.perSiteZoom || {};
+  const defaultLevel = data.defaultLevel ?? 1.0;
+  const defaultMethod = data.defaultMethod ?? 'css-zoom';
+
+  const currentZoom = perSiteZoom[domain]?.level ?? defaultLevel;
+
   let newZoom = currentZoom;
-  
+
   switch (command) {
     case 'zoom-in':
-      newZoom = Math.min(3.0, currentZoom + 0.05);
+      newZoom = Math.min(ZOOM_MAX, currentZoom + ZOOM_STEP);
       break;
     case 'zoom-out':
-      newZoom = Math.max(0.5, currentZoom - 0.05);
+      newZoom = Math.max(ZOOM_MIN, currentZoom - ZOOM_STEP);
       break;
     case 'zoom-reset':
-      newZoom = 1.0;
+      newZoom = defaultLevel;
       break;
+    default:
+      return;
   }
-  
+
   if (newZoom !== currentZoom) {
-    const method = data.perSiteZoom?.[domain]?.method || 'css-zoom';
-    
+    const method = perSiteZoom[domain]?.method ?? defaultMethod;
+
     await chrome.storage.local.set({
       perSiteZoom: {
-        ...data.perSiteZoom,
+        ...perSiteZoom,
         [domain]: { level: newZoom, method }
       }
     });
-    
+
     try {
       await chrome.tabs.sendMessage(tab.id, {
         action: 'setZoom',
