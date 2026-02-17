@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/github/v/tag/Madmanden/text-zoom?sort=semver)](https://github.com/Madmanden/text-zoom/tags)
 [![License](https://img.shields.io/github/license/Madmanden/text-zoom)](#license)
 
-Text Zoom is a Manifest V3 browser extension for native browser text zoom with granular, per-site control.
+Text Zoom is a Manifest V3 browser extension for native browser zoom with finer control than Chrome's built-in zoom — granular steps, per-site memory, and multiple input methods.
 
 It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
 
@@ -152,7 +152,7 @@ The extension requires page access only to apply zoom behavior on visited pages.
 - Listing requirement: provide at least one screenshot
 - Suggested screenshot content: popup controls visible next to a page showing adjusted text size
 - Suggested store description:
-  - `Native browser text zoom with granular control. Adjust text size precisely without relying on coarse page zoom steps. Per-site settings and keyboard shortcuts included.`
+  - `Precise browser zoom. Set exactly the zoom level you want instead of snapping to your browser's coarse preset steps. Fine-grained control via popup, keyboard shortcuts, and scroll wheel.`
 
 ## License
 
