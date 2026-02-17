@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resetBtn = document.getElementById('resetBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const zoomMethod = document.getElementById('zoomMethod');
-  const { ensureContentScriptAndSend } = TextZoomMessaging;
 
   const showError = (message) => {
     const errorDiv = document.getElementById('errorMessage') || document.createElement('div');

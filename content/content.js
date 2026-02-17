@@ -1,13 +1,13 @@
 (function() {
   'use strict';
 
-  if (window.__fineZoomLoaded) return;
-  window.__fineZoomLoaded = true;
-
   if (typeof ZoomMethods === 'undefined') {
     console.error('Fine Zoom: ZoomMethods not loaded');
     return;
   }
+
+  if (window.__fineZoomLoaded) return;
+  window.__fineZoomLoaded = true;
 
   const { isDomainExcluded } = TextZoomUtils;
   const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
