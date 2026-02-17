@@ -67,6 +67,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const normalizeLevel = (value) => Math.round(value * 100) / 100;
 
+  const ensureContentScriptAndSend = async (message) => {
+    try {
+      await chrome.tabs.sendMessage(tab.id, message);
+      return true;
+    } catch (error) {
+      const messageText = error?.message || String(error);
+      if (!messageText.includes('Receiving end does not exist')) {
+        throw error;
+      }
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id, allFrames: true },
+      files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
+    });
+
+    await chrome.tabs.sendMessage(tab.id, message);
+    return true;
+  };
+
   const updateZoom = async (level, method) => {
     currentLevel = level;
     currentMethod = method;
@@ -88,14 +108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      await chrome.tabs.sendMessage(tab.id, {
+      await ensureContentScriptAndSend({
         action: 'setZoom',
         level: level,
         method: method
       });
     } catch (error) {
       console.error('Text Zoom: Failed to apply zoom', error);
-      showError('Zoom saved but not applied. Refresh the page.');
+      showError('Zoom saved but could not be applied on this page.');
     }
   };
 

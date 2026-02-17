@@ -61,6 +61,26 @@ const isDomainExcluded = (domain, excludedSites) => {
   return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
 };
 
+const ensureContentScriptAndSend = async (tabId, message) => {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (error) {
+    const messageText = error?.message || String(error);
+    if (!messageText.includes('Receiving end does not exist')) {
+      throw error;
+    }
+  }
+
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
+  });
+
+  await chrome.tabs.sendMessage(tabId, message);
+  return true;
+};
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) {
     return;
@@ -124,7 +144,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     });
 
     try {
-      await chrome.tabs.sendMessage(tab.id, {
+      await ensureContentScriptAndSend(tab.id, {
         action: 'setZoom',
         level: newZoom,
         method: method

@@ -6,6 +6,62 @@ window.ZoomMethods = (function() {
   };
 
   const FONT_SIZE_STYLE_ID = 'text-zoom-font-style';
+  const FONT_SIZE_SKIP_TAGS = new Set([
+    'SCRIPT',
+    'STYLE',
+    'NOSCRIPT',
+    'IFRAME',
+    'SVG',
+    'PATH',
+    'META',
+    'LINK',
+    'HEAD',
+    'HTML'
+  ]);
+
+  const fontSizeState = {
+    scaledElements: new Map()
+  };
+
+  const hasDirectText = (element) => {
+    for (const node of element.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const getScalableTextElements = () => {
+    const root = document.body || document.documentElement;
+    if (!root) return [];
+
+    const elements = [];
+    if (root instanceof Element && !FONT_SIZE_SKIP_TAGS.has(root.tagName) && hasDirectText(root)) {
+      elements.push(root);
+    }
+
+    root.querySelectorAll('*').forEach((element) => {
+      if (FONT_SIZE_SKIP_TAGS.has(element.tagName)) return;
+      if (hasDirectText(element)) {
+        elements.push(element);
+      }
+    });
+
+    return elements;
+  };
+
+  const removeFontSizeInlineOverrides = () => {
+    fontSizeState.scaledElements.forEach((entry, element) => {
+      if (!element.isConnected) return;
+      if (entry.inlineFontSizeValue) {
+        element.style.setProperty('font-size', entry.inlineFontSizeValue, entry.inlineFontSizePriority);
+      } else {
+        element.style.removeProperty('font-size');
+      }
+    });
+    fontSizeState.scaledElements.clear();
+  };
 
   return {
     'css-zoom': {
@@ -33,6 +89,8 @@ window.ZoomMethods = (function() {
       apply: (level) => {
         const validLevel = validateZoomLevel(level);
 
+        removeFontSizeInlineOverrides();
+
         let style = document.getElementById(FONT_SIZE_STYLE_ID);
         if (!style) {
           style = document.createElement('style');
@@ -41,14 +99,6 @@ window.ZoomMethods = (function() {
         }
 
         style.textContent = `
-          :root {
-            --text-zoom-scale: ${validLevel};
-          }
-
-          html {
-            font-size: calc(100% * var(--text-zoom-scale)) !important;
-          }
-
           body {
             overflow-x: hidden !important;
           }
@@ -61,8 +111,26 @@ window.ZoomMethods = (function() {
             overflow-wrap: anywhere !important;
           }
         `;
+
+        const textElements = getScalableTextElements();
+        textElements.forEach((element) => {
+          const currentFontSize = parseFloat(getComputedStyle(element).fontSize);
+          if (!isFinite(currentFontSize) || currentFontSize <= 0) return;
+
+          fontSizeState.scaledElements.set(element, {
+            baseFontSize: currentFontSize,
+            inlineFontSizeValue: element.style.getPropertyValue('font-size'),
+            inlineFontSizePriority: element.style.getPropertyPriority('font-size')
+          });
+        });
+
+        fontSizeState.scaledElements.forEach((entry, element) => {
+          if (!element.isConnected) return;
+          element.style.setProperty('font-size', `${entry.baseFontSize * validLevel}px`, 'important');
+        });
       },
       remove: () => {
+        removeFontSizeInlineOverrides();
         const style = document.getElementById(FONT_SIZE_STYLE_ID);
         if (style) style.remove();
       }
