@@ -209,6 +209,74 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
     return true;
   }
+
+  if (request.action === 'adjustZoomByDelta') {
+    const tabId = sender.tab?.id;
+    const domain = toDomain(sender.tab?.url);
+
+    if (typeof tabId !== 'number' || !domain) {
+      sendResponse({ success: false, error: 'Missing tab context' });
+      return;
+    }
+
+    const requestedDelta = Number.parseFloat(request.delta);
+    if (!Number.isFinite(requestedDelta) || requestedDelta === 0) {
+      sendResponse({ success: false, error: 'Invalid delta' });
+      return;
+    }
+
+    (async () => {
+      const data = await chrome.storage.local.get([
+        'perSiteZoom',
+        'defaultLevel',
+        'defaultMethod',
+        'excludedSites'
+      ]);
+
+      const excludedSites = data.excludedSites ?? [];
+      if (isDomainExcluded(domain, excludedSites)) {
+        return { success: true, level: 1.0, excluded: true };
+      }
+
+      const perSiteZoom = data.perSiteZoom || {};
+      const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
+      const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
+      const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
+
+      let currentZoom;
+      if (isNativeZoomMethod(method)) {
+        currentZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
+      } else {
+        currentZoom = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
+      }
+
+      const delta = Math.sign(requestedDelta) * ZOOM_STEP;
+      let newZoom;
+      if (isNativeZoomMethod(method)) {
+        newZoom = clampNativeZoom(currentZoom + delta);
+      } else {
+        newZoom = clampContentZoom(currentZoom + delta);
+      }
+
+      if (newZoom === currentZoom) {
+        return { success: true, level: currentZoom };
+      }
+
+      const appliedLevel = await applyMethodZoom(tabId, newZoom, method);
+
+      await chrome.storage.local.set({
+        perSiteZoom: {
+          ...perSiteZoom,
+          [domain]: { level: appliedLevel, method }
+        }
+      });
+
+      return { success: true, level: appliedLevel };
+    })()
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
