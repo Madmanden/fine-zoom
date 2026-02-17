@@ -230,11 +230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const persistZoom = async (level, method) => {
     const normalizedMethod = normalizeMethod(method);
     const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+    const shouldDeletePerSite = Math.abs(clampedLevel - 1.0) < 0.001;
 
-    const newPerSiteZoom = {
-      ...perSiteZoom,
-      [domain]: { level: clampedLevel, method: normalizedMethod }
-    };
+    const newPerSiteZoom = { ...perSiteZoom };
+    if (shouldDeletePerSite) {
+      delete newPerSiteZoom[domain];
+    } else {
+      newPerSiteZoom[domain] = { level: clampedLevel, method: normalizedMethod };
+    }
 
     try {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });

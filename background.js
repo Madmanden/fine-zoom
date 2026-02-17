@@ -23,6 +23,39 @@ const areZoomLevelsEqual = (a, b) => {
   return Math.abs(Number(a) - Number(b)) < ZOOM_COMPARE_EPSILON;
 };
 
+const normalizeStoredLevel = (level) => {
+  const parsed = Number.parseFloat(level);
+  if (!Number.isFinite(parsed)) return DEFAULT_LEVEL;
+  return Number(parsed.toFixed(2));
+};
+
+const buildUpdatedPerSiteZoom = (perSiteZoom, domain, level, method) => {
+  const current = perSiteZoom ?? {};
+  const shouldDelete = areZoomLevelsEqual(level, 1.0);
+
+  if (shouldDelete) {
+    if (!(domain in current)) return null;
+    const next = { ...current };
+    delete next[domain];
+    return next;
+  }
+
+  const normalizedMethod = normalizeMethod(method);
+  const normalizedLevel = normalizeStoredLevel(level);
+  const existing = current[domain];
+  const existingMethod = normalizeMethod(existing?.method);
+  const existingLevel = normalizeStoredLevel(existing?.level);
+
+  if (existing && existingMethod === normalizedMethod && areZoomLevelsEqual(existingLevel, normalizedLevel)) {
+    return null;
+  }
+
+  return {
+    ...current,
+    [domain]: { level: normalizedLevel, method: normalizedMethod }
+  };
+};
+
 const toDomain = (tabUrl) => {
   if (!tabUrl) return null;
   try {
@@ -159,19 +192,10 @@ const syncNativeZoomToStorageIfNeeded = async (tabId, tabUrl, nativeLevel) => {
   if (!isNativeZoomMethod(effectiveMethod)) return;
 
   const clampedLevel = clampNativeZoom(nativeLevel);
-  const storedLevel = perSiteZoom[domain]?.level;
-  const storedMethod = normalizeMethod(perSiteZoom[domain]?.method ?? effectiveMethod);
+  const nextPerSiteZoom = buildUpdatedPerSiteZoom(perSiteZoom, domain, clampedLevel, effectiveMethod);
+  if (!nextPerSiteZoom) return;
 
-  if (storedMethod === 'browser-zoom' && areZoomLevelsEqual(storedLevel, clampedLevel)) {
-    return;
-  }
-
-  await chrome.storage.local.set({
-    perSiteZoom: {
-      ...perSiteZoom,
-      [domain]: { level: clampedLevel, method: 'browser-zoom' }
-    }
-  });
+  await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
 };
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -185,6 +209,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     'didMigrateToFontSizeDefault',
     'didMigrateToBrowserZoomDefault',
     'didMigrateMainButtonStepTo005',
+    'didMigrateRemovePerSite100',
     'debugHighlightScaledText'
   ]);
 
@@ -248,6 +273,28 @@ chrome.runtime.onInstalled.addListener(async () => {
     if (!Number.isFinite(existingStep) || existingStep === 0.01) {
       updates.defaultPopupButtonStep = 0.05;
     }
+    await chrome.storage.local.set(updates);
+  }
+
+  if (!existing.didMigrateRemovePerSite100) {
+    const updates = { didMigrateRemovePerSite100: true };
+    const latest = await chrome.storage.local.get('perSiteZoom');
+    const perSiteZoom = latest.perSiteZoom ?? {};
+    const cleanedPerSiteZoom = {};
+    let hasChanges = false;
+
+    Object.entries(perSiteZoom).forEach(([domain, config]) => {
+      if (areZoomLevelsEqual(config?.level, 1.0)) {
+        hasChanges = true;
+        return;
+      }
+      cleanedPerSiteZoom[domain] = config;
+    });
+
+    if (hasChanges) {
+      updates.perSiteZoom = cleanedPerSiteZoom;
+    }
+
     await chrome.storage.local.set(updates);
   }
 });
@@ -362,12 +409,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       const appliedLevel = await applyMethodZoom(tabId, newZoom, method);
 
-      await chrome.storage.local.set({
-        perSiteZoom: {
-          ...perSiteZoom,
-          [domain]: { level: appliedLevel, method }
-        }
-      });
+      const nextPerSiteZoom = buildUpdatedPerSiteZoom(perSiteZoom, domain, appliedLevel, method);
+      if (nextPerSiteZoom) {
+        await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
+      }
 
       return { success: true, level: appliedLevel };
     })
@@ -443,12 +488,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       const appliedLevel = await applyMethodZoom(tabId, newZoom, method);
 
-      await chrome.storage.local.set({
-        perSiteZoom: {
-          ...perSiteZoom,
-          [domain]: { level: appliedLevel, method }
-        }
-      });
+      const nextPerSiteZoom = buildUpdatedPerSiteZoom(perSiteZoom, domain, appliedLevel, method);
+      if (nextPerSiteZoom) {
+        await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
+      }
 
       return { success: true, level: appliedLevel };
     })
@@ -536,10 +579,8 @@ chrome.commands.onCommand.addListener(async (command) => {
 
   const appliedLevel = await applyMethodZoom(tab.id, newZoom, method);
 
-  await chrome.storage.local.set({
-    perSiteZoom: {
-      ...perSiteZoom,
-      [domain]: { level: appliedLevel, method: normalizeMethod(method) }
-    }
-  });
+  const nextPerSiteZoom = buildUpdatedPerSiteZoom(perSiteZoom, domain, appliedLevel, method);
+  if (nextPerSiteZoom) {
+    await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
+  }
 });
