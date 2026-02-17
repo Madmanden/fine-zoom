@@ -93,8 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const labels = {
       'browser-zoom': 'Browser Zoom (Native)',
       'css-zoom': 'CSS Zoom (Page Scale)',
-      'font-size': 'Font Size (Text Only)',
-      'transform': 'Transform (Page Scale)'
+      'font-size': 'Font Size (Text Only)'
     };
     return labels[method] || method;
   };

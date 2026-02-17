@@ -4,11 +4,10 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 
 ## Features
 
-- **Four Zoom Methods:**
-  - **Browser Zoom** - Native Chrome page zoom with smooth 1% increments
-  - **Font-Size Scaling** (default) - Base text-size scaling for stable text-only zoom behavior
+- **Three Zoom Methods:**
+  - **Browser Zoom** (default) - Native Chrome page zoom
+  - **Font-Size Scaling** - Base text-size scaling for stable text-only zoom behavior
   - **CSS Zoom** - Full page scaling with minimal logic
-  - **Transform Scale** - GPU-accelerated full page scaling
 
 - **Per-Domain Persistence:** Your zoom preferences are saved per website
 - **No Jumpy Loading:** CSS injection happens at document start for immediate application
@@ -34,7 +33,7 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 ### Quick Zoom (Click Icon)
 
 1. Click the "Z" icon in your toolbar
-2. Use the slider and +/- buttons (Browser Zoom uses 0.01 increments)
+2. Use the slider (fixed 0.05 increments) and +/- buttons (uses your configured button step)
 3. Select your preferred zoom method from the dropdown
 4. Click "Reset" to return to 1.0x
 
@@ -55,7 +54,6 @@ The extension injects CSS at `document_start`, before the page renders, eliminat
 ### Overflow Prevention
 - CSS Zoom: Browser handles scaling automatically
 - Font-Size: Root/base `font-size` scaling + `word-wrap` safeguards for readability
-- Transform: Viewport width adjustment + `transform-origin: top left`
 
 ### Storage
 All preferences are stored using Chrome's `storage.local` API:
@@ -72,7 +70,7 @@ text-zoom-extension/
 ├── background.js          # Service worker for keyboard shortcuts
 ├── content/
 │   ├── content.js        # Content script for zoom application
-│   └── zoom-methods.js   # Three zoom implementations
+│   └── zoom-methods.js   # Zoom implementations
 ├── popup/
 │   ├── popup.html        # Quick zoom UI
 │   ├── popup.css         # Popup styles

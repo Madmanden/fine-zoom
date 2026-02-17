@@ -18,7 +18,7 @@
         <h2>⚡ Default Zoom Method</h2>
         <div class="method-options">
           <label class="radio-option">
-            <input type="radio" name="defaultMethod" value="browser-zoom">
+            <input type="radio" name="defaultMethod" value="browser-zoom" checked>
             <div class="option-content">
               <strong>Browser Zoom (Native Page Scale)</strong>
               <span>Uses Chrome's built-in page zoom for stable full-page scaling</span>
@@ -32,17 +32,10 @@
             </div>
           </label>
           <label class="radio-option">
-            <input type="radio" name="defaultMethod" value="font-size" checked>
+            <input type="radio" name="defaultMethod" value="font-size">
             <div class="option-content">
               <strong>Font-Size Scaling (Text Only)</strong>
               <span>Zooms text while leaving non-text elements alone</span>
-            </div>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="defaultMethod" value="transform">
-            <div class="option-content">
-              <strong>Transform Scale (Page Scale)</strong>
-              <span>GPU-accelerated full page scaling</span>
             </div>
           </label>
         </div>
@@ -58,7 +51,7 @@
 
       <section class="card">
         <h2>🖱️ Popup Button Step</h2>
-        <p class="description">Step used by the popup + / - buttons.</p>
+        <p class="description">Step used by the popup + / - buttons for all methods.</p>
         <div class="input-row">
           <input type="number" id="defaultPopupButtonStep" min="0.01" max="0.5" step="0.01" value="0.01">
           <span class="unit-label">x per click</span>

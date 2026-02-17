@@ -4,6 +4,12 @@ const isDomainExcluded = (domain, excludedSites) => {
   return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
 };
 
+const normalizeMethod = (method) => {
+  if (method === 'transform') return 'browser-zoom';
+  if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') return method;
+  return DEFAULT_METHOD;
+};
+
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
 
 const clampContentZoom = (level) => {
@@ -60,12 +66,14 @@ const applyContentZoom = async (tabId, level, method) => {
 };
 
 const applyMethodZoom = async (tabId, level, method) => {
-  if (isNativeZoomMethod(method)) {
+  const normalizedMethod = normalizeMethod(method);
+
+  if (isNativeZoomMethod(normalizedMethod)) {
     await clearContentZoom(tabId);
     return applyNativeZoom(tabId, level);
   }
 
-  return applyContentZoom(tabId, level, method);
+  return applyContentZoom(tabId, level, normalizedMethod);
 };
 
 const ensureContentScriptAndSend = async (tabId, message) => {
@@ -108,7 +116,7 @@ const applyStoredZoomForTab = async (tabId, tabUrl) => {
 
   const siteConfig = data.perSiteZoom?.[domain];
   const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
-  const method = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+  const method = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
 
   await applyMethodZoom(tabId, level, method);
 };
@@ -120,6 +128,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     'perSiteZoom',
     'excludedSites',
     'didMigrateToFontSizeDefault',
+    'didMigrateToBrowserZoomDefault',
     'debugHighlightScaledText'
   ]);
 
@@ -144,10 +153,14 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 
   if (!existing.didMigrateToFontSizeDefault) {
-    const updates = { didMigrateToFontSizeDefault: true };
+    await chrome.storage.local.set({ didMigrateToFontSizeDefault: true });
+  }
 
-    if (existing.defaultMethod === 'css-zoom') {
-      updates.defaultMethod = 'font-size';
+  if (!existing.didMigrateToBrowserZoomDefault) {
+    const updates = { didMigrateToBrowserZoomDefault: true };
+    const existingDefaultMethod = existing.defaultMethod;
+    if (!existingDefaultMethod || existingDefaultMethod === 'font-size' || existingDefaultMethod === 'transform') {
+      updates.defaultMethod = 'browser-zoom';
     }
 
     const perSiteZoom = existing.perSiteZoom ?? {};
@@ -155,8 +168,9 @@ chrome.runtime.onInstalled.addListener(async () => {
     let hasPerSiteChanges = false;
 
     Object.entries(perSiteZoom).forEach(([domain, config]) => {
-      if (config?.method === 'css-zoom') {
-        migratedPerSiteZoom[domain] = { ...config, method: 'font-size' };
+      const normalizedMethod = normalizeMethod(config?.method);
+      if (normalizedMethod !== config?.method) {
+        migratedPerSiteZoom[domain] = { ...config, method: normalizedMethod };
         hasPerSiteChanges = true;
       } else {
         migratedPerSiteZoom[domain] = config;
@@ -237,7 +251,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   const perSiteZoom = data.perSiteZoom || {};
   const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
   const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
-  const method = perSiteZoom[domain]?.method ?? defaultMethod;
+  const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
 
   let currentZoom;
   if (isNativeZoomMethod(method)) {
@@ -276,7 +290,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   await chrome.storage.local.set({
     perSiteZoom: {
       ...perSiteZoom,
-      [domain]: { level: appliedLevel, method }
+      [domain]: { level: appliedLevel, method: normalizeMethod(method) }
     }
   });
 });

@@ -9,10 +9,19 @@
   const isDomainExcluded = (domain, excludedSites) => {
     return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
   };
+  const normalizeMethod = (method) => {
+    if (method === 'transform') return 'browser-zoom';
+    if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') return method;
+    return DEFAULT_METHOD;
+  };
 
   let currentLevel = 1.0;
   let currentMethod = DEFAULT_METHOD;
   let debugHighlightScaledText = DEFAULT_DEBUG_HIGHLIGHT;
+  const removeLegacyTransformStyle = () => {
+    const legacyStyle = document.getElementById('text-zoom-transform-style');
+    if (legacyStyle) legacyStyle.remove();
+  };
 
   const applyDebugFlag = () => {
     if (!document.documentElement) return;
@@ -31,6 +40,7 @@
     currentLevel = level;
     currentMethod = method;
 
+    removeLegacyTransformStyle();
     Object.values(ZoomMethods).forEach(m => m.remove());
 
     if (level !== 1.0) {
@@ -56,7 +66,7 @@
 
       const siteConfig = data.perSiteZoom?.[domain];
       const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
-      const method = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+      const method = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
       debugHighlightScaledText = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
       applyDebugFlag();
 
@@ -99,7 +109,7 @@
     if (sender.id !== chrome.runtime.id) return;
 
     if (request.action === 'setZoom') {
-      applyZoom(request.level, request.method);
+      applyZoom(request.level, normalizeMethod(request.method));
       sendResponse({ success: true });
     } else if (request.action === 'getZoom') {
       const url = new URL(window.location.href);
@@ -109,7 +119,7 @@
         const siteConfig = data.perSiteZoom?.[domain];
         sendResponse({
           level: siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL,
-          method: siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD
+          method: normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD)
         });
       });
     }

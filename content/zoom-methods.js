@@ -139,35 +139,6 @@ window.ZoomMethods = (function() {
         const style = document.getElementById(FONT_SIZE_STYLE_ID);
         if (style) style.remove();
       }
-    },
-
-    'transform': {
-      apply: (level) => {
-        const validLevel = validateZoomLevel(level);
-        let style = document.getElementById('text-zoom-transform-style');
-        if (!style) {
-          style = document.createElement('style');
-          style.id = 'text-zoom-transform-style';
-          document.documentElement.appendChild(style);
-        }
-        style.textContent = `
-          html {
-            transform: scale(${validLevel}) !important;
-            transform-origin: top left !important;
-            width: ${100 / validLevel}% !important;
-            height: ${100 / validLevel}% !important;
-            overflow-x: hidden !important;
-          }
-
-          body {
-            overflow-x: hidden !important;
-          }
-        `;
-      },
-      remove: () => {
-        const style = document.getElementById('text-zoom-transform-style');
-        if (style) style.remove();
-      }
     }
   };
 })();

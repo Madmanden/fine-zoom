@@ -19,6 +19,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const isNativeZoomMethod = (method) => method === 'browser-zoom';
+  const normalizeMethod = (method) => {
+    if (method === 'transform') return 'browser-zoom';
+    if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') {
+      return method;
+    }
+    return DEFAULT_METHOD;
+  };
 
   const normalizeLevel = (value) => Math.round(value * 100) / 100;
 
@@ -27,8 +34,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return {
         min: BROWSER_ZOOM_MIN,
         max: BROWSER_ZOOM_MAX,
-        sliderStep: BROWSER_ZOOM_STEP,
-        buttonStep: BROWSER_ZOOM_STEP
+        sliderStep: ZOOM_STEP,
+        buttonStep: popupButtonStep
       };
     }
 
@@ -87,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const perSiteZoom = data.perSiteZoom ?? {};
   const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
   const siteConfig = perSiteZoom[domain];
-  let currentMethod = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+  let currentMethod = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
 
   const parsedButtonStep = parseFloat(data.defaultPopupButtonStep);
   const popupButtonStep = Number.isFinite(parsedButtonStep)
@@ -154,11 +161,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const updateZoom = async (level, method) => {
-    const clampedLevel = clampForMethod(level, method, popupButtonStep);
-    currentMethod = method;
+    const normalizedMethod = normalizeMethod(method);
+    const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+    currentMethod = normalizedMethod;
     currentLevel = clampedLevel;
 
-    applySliderBounds(method);
+    applySliderBounds(currentMethod);
     zoomSlider.value = currentLevel;
     zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
     zoomMethod.value = currentMethod;
@@ -183,12 +191,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const newPerSiteZoom = {
       ...perSiteZoom,
-      [domain]: { level: appliedLevel, method }
+      [domain]: { level: appliedLevel, method: currentMethod }
     };
 
     try {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
-      perSiteZoom[domain] = { level: appliedLevel, method };
+      perSiteZoom[domain] = { level: appliedLevel, method: currentMethod };
     } catch (error) {
       console.error('Text Zoom: Failed to save zoom', error);
       showError('Failed to save zoom');
@@ -225,7 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   zoomMethod.addEventListener('change', (e) => {
-    const method = e.target.value;
+    const method = normalizeMethod(e.target.value);
     const nextLevel = clampForMethod(currentLevel, method, popupButtonStep);
     updateZoom(nextLevel, method);
   });
