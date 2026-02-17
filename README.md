@@ -1,5 +1,9 @@
 # Text Zoom Extension
 
+[![Tests](https://github.com/Madmanden/text-zoom/actions/workflows/ci.yml/badge.svg)](https://github.com/Madmanden/text-zoom/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/Madmanden/text-zoom?sort=semver)](https://github.com/Madmanden/text-zoom/tags)
+[![License](https://img.shields.io/github/license/Madmanden/text-zoom)](#license)
+
 Text Zoom is a Manifest V3 browser extension for native browser text zoom with granular, per-site control.
 
 It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
