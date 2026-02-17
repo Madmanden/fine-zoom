@@ -126,13 +126,14 @@ h1 {
 
 .fine-zoom-btn {
   flex: 1;
-  padding: 8px;
-  font-size: 14px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.1;
   font-weight: 600;
   color: #667eea;
   background: #eef2ff;
   border: 1px solid #d5defa;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
 }
