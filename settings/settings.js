@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const getMethodLabel = (method) => {
     const labels = {
+      'browser-zoom': 'Browser Zoom (Native)',
       'css-zoom': 'CSS Zoom (Page Scale)',
       'font-size': 'Font Size (Text Only)',
       'transform': 'Transform (Page Scale)'

@@ -64,6 +64,11 @@ window.ZoomMethods = (function() {
   };
 
   return {
+    'browser-zoom': {
+      apply: () => {},
+      remove: () => {}
+    },
+
     'css-zoom': {
       apply: (level) => {
         const validLevel = validateZoomLevel(level);

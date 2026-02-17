@@ -5,6 +5,7 @@
   "description": "Control text zoom level with precision - no more jumpy fonts or broken layouts",
   "permissions": [
     "activeTab",
+    "tabs",
     "storage",
     "scripting"
   ],

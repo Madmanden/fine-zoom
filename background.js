@@ -1,5 +1,118 @@
 importScripts('shared/constants.js');
 
+const isDomainExcluded = (domain, excludedSites) => {
+  return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
+};
+
+const isNativeZoomMethod = (method) => method === 'browser-zoom';
+
+const clampContentZoom = (level) => {
+  const normalized = Number.parseFloat(level);
+  if (!Number.isFinite(normalized)) return DEFAULT_LEVEL;
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, normalized));
+};
+
+const clampNativeZoom = (level) => {
+  const normalized = Number.parseFloat(level);
+  if (!Number.isFinite(normalized)) return DEFAULT_LEVEL;
+  return Math.max(BROWSER_ZOOM_MIN, Math.min(BROWSER_ZOOM_MAX, normalized));
+};
+
+const toDomain = (tabUrl) => {
+  if (!tabUrl) return null;
+  try {
+    const url = new URL(tabUrl);
+    if (!/^https?:$/.test(url.protocol)) return null;
+    return url.hostname;
+  } catch {
+    return null;
+  }
+};
+
+const clearContentZoom = async (tabId) => {
+  try {
+    await ensureContentScriptAndSend(tabId, {
+      action: 'setZoom',
+      level: 1.0,
+      method: 'font-size'
+    });
+  } catch (error) {
+    console.error('Text Zoom: Failed to clear content zoom', error);
+  }
+};
+
+const applyNativeZoom = async (tabId, level) => {
+  const clamped = clampNativeZoom(level);
+  await chrome.tabs.setZoom(tabId, clamped);
+  const applied = await chrome.tabs.getZoom(tabId);
+  return clampNativeZoom(applied);
+};
+
+const applyContentZoom = async (tabId, level, method) => {
+  const clamped = clampContentZoom(level);
+  await chrome.tabs.setZoom(tabId, 1.0);
+  await ensureContentScriptAndSend(tabId, {
+    action: 'setZoom',
+    level: clamped,
+    method
+  });
+  return clamped;
+};
+
+const applyMethodZoom = async (tabId, level, method) => {
+  if (isNativeZoomMethod(method)) {
+    await clearContentZoom(tabId);
+    return applyNativeZoom(tabId, level);
+  }
+
+  return applyContentZoom(tabId, level, method);
+};
+
+const ensureContentScriptAndSend = async (tabId, message) => {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (error) {
+    const messageText = error?.message || String(error);
+    if (!messageText.includes('Receiving end does not exist')) {
+      throw error;
+    }
+  }
+
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
+  });
+
+  await chrome.tabs.sendMessage(tabId, message);
+  return true;
+};
+
+const applyStoredZoomForTab = async (tabId, tabUrl) => {
+  const domain = toDomain(tabUrl);
+  if (!domain) return;
+
+  const data = await chrome.storage.local.get([
+    'perSiteZoom',
+    'defaultLevel',
+    'defaultMethod',
+    'excludedSites'
+  ]);
+
+  const excludedSites = data.excludedSites ?? [];
+  if (isDomainExcluded(domain, excludedSites)) {
+    await chrome.tabs.setZoom(tabId, 1.0);
+    await clearContentZoom(tabId);
+    return;
+  }
+
+  const siteConfig = data.perSiteZoom?.[domain];
+  const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
+  const method = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+
+  await applyMethodZoom(tabId, level, method);
+};
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get([
     'defaultMethod',
@@ -58,29 +171,48 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
-const isDomainExcluded = (domain, excludedSites) => {
-  return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
-};
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) return;
 
-const ensureContentScriptAndSend = async (tabId, message) => {
-  try {
-    await chrome.tabs.sendMessage(tabId, message);
-    return true;
-  } catch (error) {
-    const messageText = error?.message || String(error);
-    if (!messageText.includes('Receiving end does not exist')) {
-      throw error;
+  if (request.action === 'applyNativeZoom') {
+    const tabId = request.tabId ?? sender.tab?.id;
+    if (typeof tabId !== 'number') {
+      sendResponse({ success: false, error: 'Missing tab id' });
+      return;
     }
+
+    clearContentZoom(tabId)
+      .then(() => applyNativeZoom(tabId, request.level))
+      .then((level) => sendResponse({ success: true, level }))
+      .catch((error) => {
+        sendResponse({ success: false, error: error?.message || String(error) });
+      });
+    return true;
   }
 
-  await chrome.scripting.executeScript({
-    target: { tabId, allFrames: true },
-    files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
-  });
+  if (request.action === 'getNativeZoom') {
+    const tabId = request.tabId ?? sender.tab?.id;
+    if (typeof tabId !== 'number') {
+      sendResponse({ success: false, error: 'Missing tab id' });
+      return;
+    }
 
-  await chrome.tabs.sendMessage(tabId, message);
-  return true;
-};
+    chrome.tabs.getZoom(tabId)
+      .then((level) => sendResponse({ success: true, level: clampNativeZoom(level) }))
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+
+  try {
+    await applyStoredZoomForTab(tabId, tab.url);
+  } catch (error) {
+    console.error('Text Zoom: Failed to apply stored zoom on tab update', error);
+  }
+});
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) {
@@ -89,18 +221,8 @@ chrome.commands.onCommand.addListener(async (command) => {
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
-  if (!tab?.url) return;
-
-  let url;
-  try {
-    url = new URL(tab.url);
-  } catch {
-    return;
-  }
-
-  if (!/^https?:$/.test(url.protocol)) return;
-
-  const domain = url.hostname;
+  const domain = toDomain(tab?.url);
+  if (!domain) return;
 
   const data = await chrome.storage.local.get([
     'perSiteZoom',
@@ -115,43 +237,46 @@ chrome.commands.onCommand.addListener(async (command) => {
   const perSiteZoom = data.perSiteZoom || {};
   const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
   const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
+  const method = perSiteZoom[domain]?.method ?? defaultMethod;
 
-  const currentZoom = perSiteZoom[domain]?.level ?? defaultLevel;
+  let currentZoom;
+  if (isNativeZoomMethod(method)) {
+    currentZoom = clampNativeZoom(await chrome.tabs.getZoom(tab.id));
+  } else {
+    currentZoom = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
+  }
 
   let newZoom = currentZoom;
 
   switch (command) {
     case 'zoom-in':
-      newZoom = Math.min(ZOOM_MAX, currentZoom + ZOOM_STEP);
+      newZoom = isNativeZoomMethod(method)
+        ? Math.min(BROWSER_ZOOM_MAX, currentZoom + BROWSER_ZOOM_STEP)
+        : Math.min(ZOOM_MAX, currentZoom + ZOOM_STEP);
       break;
     case 'zoom-out':
-      newZoom = Math.max(ZOOM_MIN, currentZoom - ZOOM_STEP);
+      newZoom = isNativeZoomMethod(method)
+        ? Math.max(BROWSER_ZOOM_MIN, currentZoom - BROWSER_ZOOM_STEP)
+        : Math.max(ZOOM_MIN, currentZoom - ZOOM_STEP);
       break;
     case 'zoom-reset':
-      newZoom = defaultLevel;
+      newZoom = isNativeZoomMethod(method)
+        ? clampNativeZoom(defaultLevel)
+        : clampContentZoom(defaultLevel);
       break;
     default:
       return;
   }
 
-  if (newZoom !== currentZoom) {
-    const method = perSiteZoom[domain]?.method ?? defaultMethod;
+  newZoom = Number(newZoom.toFixed(2));
+  if (newZoom === currentZoom) return;
 
-    await chrome.storage.local.set({
-      perSiteZoom: {
-        ...perSiteZoom,
-        [domain]: { level: newZoom, method }
-      }
-    });
+  const appliedLevel = await applyMethodZoom(tab.id, newZoom, method);
 
-    try {
-      await ensureContentScriptAndSend(tab.id, {
-        action: 'setZoom',
-        level: newZoom,
-        method: method
-      });
-    } catch (error) {
-      console.error('Text Zoom: Failed to apply zoom via keyboard shortcut', error);
+  await chrome.storage.local.set({
+    perSiteZoom: {
+      ...perSiteZoom,
+      [domain]: { level: appliedLevel, method }
     }
-  }
+  });
 });
