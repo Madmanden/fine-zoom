@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Text Zoom",
   "version": "1.0.0",
-  "description": "Control text zoom level with precision - no more jumpy fonts or broken layouts",
+  "description": "Native browser text zoom with granular control for clean, readable pages",
+  "homepage_url": "https://github.com/Madmanden/text-zoom",
   "permissions": [
     "tabs",
     "storage",

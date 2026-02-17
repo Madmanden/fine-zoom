@@ -1,6 +1,6 @@
 # Text Zoom Extension
 
-Text Zoom is a Manifest V3 browser extension for precise, per-site zoom control.
+Text Zoom is a Manifest V3 browser extension for native browser text zoom with granular, per-site control.
 
 It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
 
@@ -92,11 +92,10 @@ Migration flags:
 
 ## Permissions
 
-- `storage`: save local preferences
-- `activeTab`: interact with active tab from popup/shortcuts
-- `tabs`: native zoom read/write
-- `scripting`: inject content scripts when needed
-- `<all_urls>` host permission: run content script on web pages
+- `storage`: save local preferences on-device
+- `tabs`: read and apply native tab zoom
+- `scripting`: execute zoom scripts on pages when needed
+- `<all_urls>` host permission: allow zoom logic to run on visited web pages
 
 ## Compatibility Notes
 
@@ -138,9 +137,18 @@ node test-logic.js
 
 ## Privacy
 
-- All data stays in `chrome.storage.local` on your machine.
-- The extension does not send telemetry or analytics.
-- No external network access is required for core behavior.
+Text Zoom does not collect, store, or transmit personal data.
+The extension modifies text size locally in your browser.
+Settings are stored locally using Chrome storage (`chrome.storage.local`) and never leave your device.
+The extension requires page access only to apply zoom behavior on visited pages.
+
+## Chrome Web Store Listing Notes
+
+- Required icons included: `16x16`, `48x48`, `128x128`
+- Listing requirement: provide at least one screenshot
+- Suggested screenshot content: popup controls visible next to a page showing adjusted text size
+- Suggested store description:
+  - `Native browser text zoom with granular control. Adjust text size precisely without relying on coarse page zoom steps. Per-site settings and keyboard shortcuts included.`
 
 ## License
 
