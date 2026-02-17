@@ -21,14 +21,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => errorDiv.remove(), 3000);
   };
 
-  const showInfo = (message) => {
-    const infoDiv = document.getElementById('errorMessage') || document.createElement('div');
-    infoDiv.id = 'errorMessage';
-    infoDiv.style.cssText = 'background: #f5f5f5; color: #555; padding: 8px; border-radius: 4px; margin-top: 12px; font-size: 12px; text-align: center;';
-    infoDiv.textContent = message;
-    if (!document.getElementById('errorMessage')) {
-      document.querySelector('.container').appendChild(infoDiv);
-    }
+  settingsBtn.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  const setControlsEnabled = (enabled) => {
+    zoomSlider.disabled = !enabled;
+    zoomIn.disabled = !enabled;
+    zoomOut.disabled = !enabled;
+    fineZoomIn.disabled = !enabled;
+    fineZoomOut.disabled = !enabled;
+    resetBtn.disabled = !enabled;
+    zoomMethod.disabled = !enabled;
   };
 
   const isNativeZoomMethod = (method) => method === 'browser-zoom';
@@ -63,10 +67,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
-  const unsupportedTabMessage = 'Open an http(s) web page to use zoom controls.';
 
   if (!tab?.url) {
-    showInfo(unsupportedTabMessage);
+    setControlsEnabled(false);
     return;
   }
 
@@ -74,14 +77,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     url = new URL(tab.url);
   } catch {
-    showInfo(unsupportedTabMessage);
+    setControlsEnabled(false);
     return;
   }
 
   if (!/^https?:$/.test(url.protocol)) {
-    showInfo(unsupportedTabMessage);
+    setControlsEnabled(false);
     return;
   }
+
+  setControlsEnabled(true);
 
   const domain = url.hostname;
 
@@ -310,7 +315,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyAndPersist(nextLevel, method);
   });
 
-  settingsBtn.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
 });
