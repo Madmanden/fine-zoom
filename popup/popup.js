@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  const POPUP_BUTTON_STEP = 0.01;
+
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomLevel = document.getElementById('zoomLevel');
   const zoomIn = document.getElementById('zoomIn');
@@ -63,6 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
   zoomMethod.value = currentMethod;
 
+  const normalizeLevel = (value) => Math.round(value * 100) / 100;
+
   const updateZoom = async (level, method) => {
     currentLevel = level;
     currentMethod = method;
@@ -106,12 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   zoomIn.addEventListener('click', () => {
-    const newLevel = Math.min(ZOOM_MAX, currentLevel + ZOOM_STEP);
+    const newLevel = Math.min(ZOOM_MAX, normalizeLevel(currentLevel + POPUP_BUTTON_STEP));
     updateZoom(newLevel, currentMethod);
   });
 
   zoomOut.addEventListener('click', () => {
-    const newLevel = Math.max(ZOOM_MIN, currentLevel - ZOOM_STEP);
+    const newLevel = Math.max(ZOOM_MIN, normalizeLevel(currentLevel - POPUP_BUTTON_STEP));
     updateZoom(newLevel, currentMethod);
   });
 

@@ -5,7 +5,7 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 ## Features
 
 - **Three Zoom Methods:**
-  - **Font-Size Scaling** (default) - Text-only zoom behavior
+  - **Font-Size Scaling** (default) - Base text-size scaling for stable text-only zoom behavior
   - **CSS Zoom** - Full page scaling with minimal logic
   - **Transform Scale** - GPU-accelerated full page scaling
 
@@ -33,7 +33,7 @@ A Chrome extension for controlling text zoom level with precision. No more jumpy
 ### Quick Zoom (Click Icon)
 
 1. Click the "Z" icon in your toolbar
-2. Use the slider (0.05 increments) or +/- buttons
+2. Use the slider (0.05 increments) or +/- buttons (0.01 increments)
 3. Select your preferred zoom method from the dropdown
 4. Click "Reset" to return to 1.0x
 
@@ -53,7 +53,7 @@ The extension injects CSS at `document_start`, before the page renders, eliminat
 
 ### Overflow Prevention
 - CSS Zoom: Browser handles scaling automatically
-- Font-Size: `max-width: 100vw` + `word-wrap: break-word` on all text elements
+- Font-Size: Root/base `font-size` scaling + `word-wrap` safeguards for readability
 - Transform: Viewport width adjustment + `transform-origin: top left`
 
 ### Storage
