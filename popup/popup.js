@@ -3,9 +3,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const zoomLevel = document.getElementById('zoomLevel');
   const zoomIn = document.getElementById('zoomIn');
   const zoomOut = document.getElementById('zoomOut');
+  const fineZoomIn = document.getElementById('fineZoomIn');
+  const fineZoomOut = document.getElementById('fineZoomOut');
   const resetBtn = document.getElementById('resetBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const zoomMethod = document.getElementById('zoomMethod');
+  const FINE_BUTTON_STEP = 0.01;
 
   const showError = (message) => {
     const errorDiv = document.getElementById('errorMessage') || document.createElement('div');
@@ -105,9 +108,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   applySliderBounds(currentMethod);
-  zoomSlider.value = currentLevel;
-  zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
-  zoomMethod.value = currentMethod;
+  const syncLevelDisplay = () => {
+    zoomSlider.value = currentLevel;
+    zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
+    zoomMethod.value = currentMethod;
+  };
+  syncLevelDisplay();
 
   const ensureContentScriptAndSend = async (message) => {
     try {
@@ -142,6 +148,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       throw new Error(response?.error || 'Native zoom failed');
     }
 
+    return normalizeLevel(response.level);
+  };
+
+  const getNativeZoom = async () => {
+    const response = await chrome.runtime.sendMessage({
+      action: 'getNativeZoom',
+      tabId: tab.id
+    });
+    if (!response?.success) {
+      throw new Error(response?.error || 'Native zoom read failed');
+    }
     return normalizeLevel(response.level);
   };
 
@@ -221,6 +238,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await persistZoom(applyResult.level, applyResult.method);
   };
 
+  if (isNativeZoomMethod(currentMethod)) {
+    try {
+      const nativeLevel = clampForMethod(await getNativeZoom(), currentMethod, popupButtonStep);
+      if (nativeLevel !== currentLevel) {
+        currentLevel = nativeLevel;
+        syncLevelDisplay();
+      }
+    } catch (error) {
+      console.error('Text Zoom: Failed to read native zoom', error);
+    }
+  }
+
   zoomSlider.addEventListener('input', async (e) => {
     const level = parseFloat(e.target.value);
     await applyZoomOnly(level, currentMethod);
@@ -242,6 +271,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   zoomOut.addEventListener('click', () => {
     const bounds = getMethodBounds(currentMethod, popupButtonStep);
     const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - bounds.buttonStep));
+    applyAndPersist(newLevel, currentMethod);
+  });
+
+  fineZoomIn.addEventListener('click', () => {
+    const bounds = getMethodBounds(currentMethod, popupButtonStep);
+    const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + FINE_BUTTON_STEP));
+    applyAndPersist(newLevel, currentMethod);
+  });
+
+  fineZoomOut.addEventListener('click', () => {
+    const bounds = getMethodBounds(currentMethod, popupButtonStep);
+    const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - FINE_BUTTON_STEP));
     applyAndPersist(newLevel, currentMethod);
   });
 

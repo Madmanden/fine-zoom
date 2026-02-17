@@ -9,7 +9,7 @@ const DEFAULT_LEVEL = 1.0;
 const DEFAULT_DEBUG_HIGHLIGHT = false;
 const POPUP_BUTTON_STEP_MIN = 0.01;
 const POPUP_BUTTON_STEP_MAX = 0.5;
-const DEFAULT_POPUP_BUTTON_STEP = 0.01;
+const DEFAULT_POPUP_BUTTON_STEP = 0.05;
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {

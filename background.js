@@ -130,6 +130,40 @@ const applyStoredZoomForTab = async (tabId, tabUrl) => {
   await applyMethodZoom(tabId, level, method);
 };
 
+const syncNativeZoomToStorageIfNeeded = async (tabId, tabUrl, nativeLevel) => {
+  const domain = toDomain(tabUrl);
+  if (!domain) return;
+
+  const data = await chrome.storage.local.get([
+    'perSiteZoom',
+    'defaultMethod',
+    'excludedSites'
+  ]);
+
+  const excludedSites = data.excludedSites ?? [];
+  if (isDomainExcluded(domain, excludedSites)) return;
+
+  const perSiteZoom = data.perSiteZoom || {};
+  const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
+  const effectiveMethod = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
+  if (!isNativeZoomMethod(effectiveMethod)) return;
+
+  const clampedLevel = clampNativeZoom(nativeLevel);
+  const storedLevel = perSiteZoom[domain]?.level;
+  const storedMethod = normalizeMethod(perSiteZoom[domain]?.method ?? effectiveMethod);
+
+  if (storedMethod === 'browser-zoom' && Number(storedLevel) === Number(clampedLevel)) {
+    return;
+  }
+
+  await chrome.storage.local.set({
+    perSiteZoom: {
+      ...perSiteZoom,
+      [domain]: { level: clampedLevel, method: 'browser-zoom' }
+    }
+  });
+};
+
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get([
     'defaultMethod',
@@ -140,6 +174,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     'excludedSites',
     'didMigrateToFontSizeDefault',
     'didMigrateToBrowserZoomDefault',
+    'didMigrateMainButtonStepTo005',
     'debugHighlightScaledText'
   ]);
 
@@ -194,6 +229,15 @@ chrome.runtime.onInstalled.addListener(async () => {
       updates.perSiteZoom = migratedPerSiteZoom;
     }
 
+    await chrome.storage.local.set(updates);
+  }
+
+  if (!existing.didMigrateMainButtonStepTo005) {
+    const updates = { didMigrateMainButtonStepTo005: true };
+    const existingStep = Number.parseFloat(existing.defaultPopupButtonStep);
+    if (!Number.isFinite(existingStep) || existingStep === 0.01) {
+      updates.defaultPopupButtonStep = 0.05;
+    }
     await chrome.storage.local.set(updates);
   }
 });
@@ -411,6 +455,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     await applyStoredZoomForTab(tabId, tab.url);
   } catch (error) {
     console.error('Text Zoom: Failed to apply stored zoom on tab update', error);
+  }
+});
+
+chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(zoomChangeInfo.tabId);
+    await syncNativeZoomToStorageIfNeeded(zoomChangeInfo.tabId, tab?.url, zoomChangeInfo.newZoomFactor);
+  } catch (error) {
+    console.error('Text Zoom: Failed to sync native zoom change', error);
   }
 });
 

@@ -93,7 +93,7 @@ h1 {
 .buttons-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .zoom-btn {
@@ -115,6 +115,34 @@ h1 {
 }
 
 .zoom-btn:active {
+  transform: translateY(0);
+}
+
+.fine-buttons-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fine-zoom-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  background: #eef2ff;
+  border: 1px solid #d5defa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.fine-zoom-btn:hover {
+  background: #e3eafe;
+  transform: translateY(-1px);
+}
+
+.fine-zoom-btn:active {
   transform: translateY(0);
 }
 

@@ -13,6 +13,7 @@ It supports native browser zoom and two CSS-based alternatives, with immediate i
 - Per-site persistence of level and method
 - Live slider preview while dragging
 - Configurable popup button increment (`+` / `-`)
+- Fine popup controls (`0.01`) via a dedicated small +/- row
 - Ctrl+Wheel hijack on supported pages (fixed `0.05` increment steps)
 - Ctrl key hijack on supported pages:
   - `Ctrl+` zoom in (`0.05`)
@@ -42,7 +43,8 @@ It supports native browser zoom and two CSS-based alternatives, with immediate i
 2. Choose a method.
 3. Adjust zoom:
    - Slider step is fixed at `0.05`.
-   - `+` / `-` use your configured popup button step.
+   - Main `+` / `-` use your configured popup button step (default `0.05`).
+   - Fine `+` / `-` use fixed `0.01`.
    - `Ctrl+MouseWheel` (and trackpad pinch events emitted as Ctrl+Wheel) use extension zoom in fixed `0.05` steps on supported pages.
    - `Ctrl+`, `Ctrl-`, and `Ctrl+0` are hijacked on supported pages.
 4. Click Reset to return to default level.
@@ -67,6 +69,7 @@ Available settings include:
 - Content scripts handle CSS-based methods at `document_start`.
 - Native mode uses `chrome.tabs.setZoom()` and `chrome.tabs.getZoom()`.
 - Site-specific settings are stored in `chrome.storage.local`.
+- In browser-zoom mode, manual native browser zoom changes are synchronized into extension state.
 - Ctrl+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
 - Ctrl key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
 
@@ -80,6 +83,7 @@ Available settings include:
 - `debugHighlightScaledText`
 - `enableCtrlWheelHijack`
 - `enableCtrlKeyHijack`
+- `didMigrateMainButtonStepTo005`
 
 Migration flags:
 - `didMigrateToFontSizeDefault`
