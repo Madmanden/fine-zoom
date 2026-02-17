@@ -1,9 +1,5 @@
 const { ZOOM_MIN, ZOOM_MAX, DEFAULT_LEVEL } = require('./shared/constants.js');
-
-// Mock chrome for testing if needed, but we're testing pure logic here
-const isDomainExcluded = (domain, excludedSites) => {
-  return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
-};
+const { isDomainExcluded, normalizeMethod } = require('./shared/utils.js');
 
 function testDomainExclusion() {
   console.log('Testing domain exclusion...');
@@ -27,6 +23,27 @@ function testDomainExclusion() {
   console.log('✅ Domain exclusion tests passed');
 }
 
+function testMethodNormalization() {
+  console.log('Testing method normalization...');
+  const fallback = 'browser-zoom';
+  const cases = [
+    { method: 'browser-zoom', expected: 'browser-zoom' },
+    { method: 'font-size', expected: 'font-size' },
+    { method: 'css-zoom', expected: 'css-zoom' },
+    { method: 'transform', expected: 'browser-zoom' },
+    { method: 'invalid-method', expected: fallback },
+    { method: undefined, expected: fallback }
+  ];
+
+  cases.forEach(({ method, expected }) => {
+    const result = normalizeMethod(method, fallback);
+    if (result !== expected) {
+      throw new Error(`Failed method normalization for ${String(method)}: expected ${expected}, got ${result}`);
+    }
+  });
+  console.log('✅ Method normalization tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -40,6 +57,7 @@ function testConstants() {
 
 try {
   testDomainExclusion();
+  testMethodNormalization();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {

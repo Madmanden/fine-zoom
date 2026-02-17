@@ -1,14 +1,7 @@
-importScripts('shared/constants.js');
+importScripts('shared/constants.js', 'shared/utils.js');
 
-const isDomainExcluded = (domain, excludedSites) => {
-  return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
-};
-
-const normalizeMethod = (method) => {
-  if (method === 'transform') return 'browser-zoom';
-  if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') return method;
-  return DEFAULT_METHOD;
-};
+const { isDomainExcluded } = TextZoomUtils;
+const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
 
@@ -89,7 +82,7 @@ const ensureContentScriptAndSend = async (tabId, message) => {
 
   await chrome.scripting.executeScript({
     target: { tabId, allFrames: true },
-    files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
+    files: ['shared/constants.js', 'shared/utils.js', 'content/zoom-methods.js', 'content/content.js']
   });
 
   await chrome.tabs.sendMessage(tabId, message);

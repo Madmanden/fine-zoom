@@ -19,13 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const isNativeZoomMethod = (method) => method === 'browser-zoom';
-  const normalizeMethod = (method) => {
-    if (method === 'transform') return 'browser-zoom';
-    if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') {
-      return method;
-    }
-    return DEFAULT_METHOD;
-  };
+  const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
   const normalizeLevel = (value) => Math.round(value * 100) / 100;
 
@@ -91,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const perSiteZoom = data.perSiteZoom ?? {};
+  let perSiteZoom = data.perSiteZoom ?? {};
   const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
   const siteConfig = perSiteZoom[domain];
   let currentMethod = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
@@ -128,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await chrome.scripting.executeScript({
       target: { tabId: tab.id, allFrames: true },
-      files: ['shared/constants.js', 'content/zoom-methods.js', 'content/content.js']
+      files: ['shared/constants.js', 'shared/utils.js', 'content/zoom-methods.js', 'content/content.js']
     });
 
     await chrome.tabs.sendMessage(tab.id, message);
@@ -211,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
-      perSiteZoom[domain] = { level: clampedLevel, method: normalizedMethod };
+      perSiteZoom = newPerSiteZoom;
     } catch (error) {
       console.error('Text Zoom: Failed to save zoom', error);
       showError('Failed to save zoom');

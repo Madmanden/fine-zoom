@@ -6,14 +6,8 @@
     return;
   }
 
-  const isDomainExcluded = (domain, excludedSites) => {
-    return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
-  };
-  const normalizeMethod = (method) => {
-    if (method === 'transform') return 'browser-zoom';
-    if (method === 'browser-zoom' || method === 'font-size' || method === 'css-zoom') return method;
-    return DEFAULT_METHOD;
-  };
+  const { isDomainExcluded } = TextZoomUtils;
+  const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
   let currentLevel = 1.0;
   let currentMethod = DEFAULT_METHOD;
