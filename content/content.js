@@ -11,7 +11,6 @@
 
   let currentLevel = 1.0;
   let currentMethod = DEFAULT_METHOD;
-  let debugHighlightScaledText = DEFAULT_DEBUG_HIGHLIGHT;
   let currentDomain = '';
   let isCurrentDomainExcluded = false;
   let isCtrlWheelEnabled = false;
@@ -25,14 +24,6 @@
   const removeLegacyTransformStyle = () => {
     const legacyStyle = document.getElementById('fine-zoom-transform-style');
     if (legacyStyle) legacyStyle.remove();
-  };
-
-  const applyDebugFlag = () => {
-    if (!document.documentElement) return;
-    document.documentElement.setAttribute(
-      'data-fine-zoom-debug-highlight',
-      debugHighlightScaledText ? '1' : '0'
-    );
   };
 
   const applyZoom = (level, method) => {
@@ -161,8 +152,7 @@
         'perSiteZoom',
         'defaultMethod',
         'defaultLevel',
-        'excludedSites',
-        'debugHighlightScaledText'
+        'excludedSites'
       ]);
 
       const excludedSites = data.excludedSites ?? [];
@@ -177,8 +167,6 @@
       const siteConfig = data.perSiteZoom?.[domain];
       const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
       const method = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
-      debugHighlightScaledText = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
-      applyDebugFlag();
 
       if (level !== 1.0) {
         // Ensure document.documentElement exists before applying
@@ -188,7 +176,6 @@
           // Fallback for very early execution
           const observer = new MutationObserver(() => {
             if (document.documentElement) {
-              applyDebugFlag();
               applyZoom(level, method);
               observer.disconnect();
             }
@@ -219,12 +206,6 @@
     }
     if (changes.enableCtrlWheelHijack || changes.enableCtrlKeyHijack) {
       void refreshHijackEligibility();
-    }
-    if (!changes.debugHighlightScaledText) return;
-    debugHighlightScaledText = changes.debugHighlightScaledText.newValue ?? DEFAULT_DEBUG_HIGHLIGHT;
-    applyDebugFlag();
-    if (currentMethod === 'font-size' && currentLevel !== 1.0) {
-      applyZoom(currentLevel, currentMethod);
     }
   });
 

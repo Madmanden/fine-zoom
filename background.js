@@ -209,8 +209,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     'didMigrateToFontSizeDefault',
     'didMigrateToBrowserZoomDefault',
     'didMigrateMainButtonStepTo005',
-    'didMigrateRemovePerSite100',
-    'debugHighlightScaledText'
+    'didMigrateRemovePerSite100'
   ]);
 
   const defaults = {
@@ -220,8 +219,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     enableCtrlWheelHijack: true,
     enableCtrlKeyHijack: true,
     perSiteZoom: {},
-    excludedSites: [],
-    debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
+    excludedSites: []
   };
 
   const toSet = {};

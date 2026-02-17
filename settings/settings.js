@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const clearAllSites = document.getElementById('clearAllSites');
   const excludedSites = document.getElementById('excludedSites');
   const saveExcluded = document.getElementById('saveExcluded');
-  const debugHighlightScaledText = document.getElementById('debugHighlightScaledText');
   const enableCtrlWheelHijack = document.getElementById('enableCtrlWheelHijack');
   const enableCtrlKeyHijack = document.getElementById('enableCtrlKeyHijack');
   const resetAll = document.getElementById('resetAll');
@@ -39,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       'defaultPopupButtonStep',
       'perSiteZoom',
       'excludedSites',
-      'debugHighlightScaledText',
       'enableCtrlWheelHijack',
       'enableCtrlKeyHijack'
     ]);
@@ -60,7 +58,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const excluded = data.excludedSites ?? [];
     excludedSites.value = excluded.join('\n');
 
-    debugHighlightScaledText.checked = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
     enableCtrlWheelHijack.checked = data.enableCtrlWheelHijack ?? true;
     enableCtrlKeyHijack.checked = data.enableCtrlKeyHijack ?? true;
   };
@@ -142,11 +139,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('Excluded sites saved!');
   });
 
-  debugHighlightScaledText.addEventListener('change', async (e) => {
-    await chrome.storage.local.set({ debugHighlightScaledText: e.target.checked });
-    showToast('Debug highlight updated');
-  });
-
   enableCtrlWheelHijack.addEventListener('change', async (e) => {
     await chrome.storage.local.set({ enableCtrlWheelHijack: e.target.checked });
     showToast('Ctrl+Wheel hijack updated');
@@ -165,7 +157,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
         perSiteZoom: {},
         excludedSites: [],
-        debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT,
         enableCtrlWheelHijack: true,
         enableCtrlKeyHijack: true
       });
