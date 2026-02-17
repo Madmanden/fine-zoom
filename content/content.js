@@ -19,7 +19,6 @@
   let ctrlWheelAccumulator = 0;
   let pendingWheelSteps = 0;
   let wheelFlushInProgress = false;
-  const CTRL_WHEEL_STEP = ZOOM_STEP;
   const CTRL_WHEEL_DELTA_THRESHOLD = 100;
   const removeLegacyTransformStyle = () => {
     const legacyStyle = document.getElementById('fine-zoom-transform-style');
@@ -29,17 +28,27 @@
   const applyZoom = (level, method) => {
     if (!ZoomMethods[method]) {
       console.warn(`Fine Zoom: Unknown zoom method: ${method}`);
-      return;
+      return false;
     }
 
+    const previousLevel = currentLevel;
+    const previousMethod = currentMethod;
     currentLevel = level;
     currentMethod = method;
 
-    removeLegacyTransformStyle();
-    Object.values(ZoomMethods).forEach(m => m.remove());
+    try {
+      removeLegacyTransformStyle();
+      Object.values(ZoomMethods).forEach(m => m.remove());
 
-    if (level !== 1.0) {
-      ZoomMethods[method].apply(level);
+      if (level !== 1.0) {
+        ZoomMethods[method].apply(level);
+      }
+      return true;
+    } catch (error) {
+      currentLevel = previousLevel;
+      currentMethod = previousMethod;
+      console.error('Fine Zoom: Failed to apply zoom method', error);
+      return false;
     }
   };
 
@@ -54,7 +63,7 @@
       try {
         const response = await chrome.runtime.sendMessage({
           action: 'adjustZoomByDelta',
-          delta: direction * CTRL_WHEEL_STEP
+          delta: direction
         });
         if (response?.success && typeof response.level === 'number') {
           currentLevel = response.level;
@@ -169,18 +178,27 @@
       const method = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
 
       if (level !== 1.0) {
-        // Ensure document.documentElement exists before applying
         if (document.documentElement) {
           applyZoom(level, method);
         } else {
-          // Fallback for very early execution
-          const observer = new MutationObserver(() => {
-            if (document.documentElement) {
-              applyZoom(level, method);
-              observer.disconnect();
-            }
-          });
+          let didApply = false;
+          const runApply = () => {
+            if (didApply || !document.documentElement) return;
+            didApply = true;
+            applyZoom(level, method);
+            observer.disconnect();
+            document.removeEventListener('readystatechange', runApply);
+            document.removeEventListener('DOMContentLoaded', runApply);
+          };
+
+          const observer = new MutationObserver(runApply);
           observer.observe(document, { childList: true, subtree: true });
+          document.addEventListener('readystatechange', runApply);
+          document.addEventListener('DOMContentLoaded', runApply);
+          setTimeout(() => {
+            runApply();
+            observer.disconnect();
+          }, 3000);
         }
       }
 
@@ -213,8 +231,9 @@
     if (sender.id !== chrome.runtime.id) return;
 
     if (request.action === 'setZoom') {
-      applyZoom(request.level, normalizeMethod(request.method));
-      sendResponse({ success: true });
+      const success = applyZoom(request.level, normalizeMethod(request.method));
+      sendResponse({ success });
+      return;
     } else if (request.action === 'getZoom') {
       const url = new URL(window.location.href);
       const domain = url.hostname;
@@ -226,7 +245,7 @@
           method: normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD)
         });
       });
+      return true;
     }
-    return true;
   });
 })();

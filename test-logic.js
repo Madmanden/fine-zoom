@@ -1,4 +1,12 @@
-const { ZOOM_MIN, ZOOM_MAX, DEFAULT_LEVEL } = require('./shared/constants.js');
+const {
+  ZOOM_MIN,
+  ZOOM_MAX,
+  DEFAULT_LEVEL,
+  STEP_MIN,
+  STEP_MAX,
+  DEFAULT_ZOOM_STEP,
+  DEFAULT_FINE_ZOOM_STEP
+} = require('./shared/constants.js');
 const { isDomainExcluded, normalizeMethod, accumulateCtrlWheelSteps } = require('./shared/utils.js');
 
 function testDomainExclusion() {
@@ -105,6 +113,12 @@ function testConstants() {
   }
   if (DEFAULT_LEVEL !== 1.0) {
     throw new Error('DEFAULT_LEVEL is incorrect');
+  }
+  if (STEP_MIN !== 0.01 || STEP_MAX !== 0.5) {
+    throw new Error('Step limits are incorrect');
+  }
+  if (DEFAULT_ZOOM_STEP !== 0.05 || DEFAULT_FINE_ZOOM_STEP !== 0.01) {
+    throw new Error('Default step constants are incorrect');
   }
   console.log('✅ Constants tests passed');
 }

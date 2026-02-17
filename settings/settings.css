@@ -115,7 +115,8 @@ main {
   gap: 12px;
 }
 
-#defaultPopupButtonStep {
+#defaultZoomStep,
+#defaultFineZoomStep {
   width: 120px;
   padding: 10px 12px;
   border: 2px solid #e0e0e0;
@@ -123,7 +124,8 @@ main {
   font-size: 15px;
 }
 
-#defaultPopupButtonStep:focus {
+#defaultZoomStep:focus,
+#defaultFineZoomStep:focus {
   outline: none;
   border-color: #667eea;
 }

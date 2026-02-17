@@ -20,7 +20,8 @@ window.ZoomMethods = (function() {
   ]);
 
   const fontSizeState = {
-    scaledElements: new Map()
+    scaledElements: new WeakMap(),
+    activeElements: []
   };
 
   const hasDirectText = (element) => {
@@ -37,22 +38,34 @@ window.ZoomMethods = (function() {
     if (!root) return [];
 
     const elements = [];
-    if (root instanceof Element && !FONT_SIZE_SKIP_TAGS.has(root.tagName) && hasDirectText(root)) {
-      elements.push(root);
-    }
+    if (!(root instanceof Element)) return elements;
 
-    root.querySelectorAll('*').forEach((element) => {
-      if (FONT_SIZE_SKIP_TAGS.has(element.tagName)) return;
-      if (hasDirectText(element)) {
-        elements.push(element);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (node) => {
+        if (!(node instanceof Element)) return NodeFilter.FILTER_SKIP;
+        if (FONT_SIZE_SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_SKIP;
+        return hasDirectText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       }
     });
+
+    let current = walker.currentNode;
+    if (current instanceof Element && !FONT_SIZE_SKIP_TAGS.has(current.tagName) && hasDirectText(current)) {
+      elements.push(current);
+    }
+
+    while (walker.nextNode()) {
+      if (walker.currentNode instanceof Element) {
+        elements.push(walker.currentNode);
+      }
+    }
 
     return elements;
   };
 
   const removeFontSizeInlineOverrides = () => {
-    fontSizeState.scaledElements.forEach((entry, element) => {
+    fontSizeState.activeElements.forEach((element) => {
+      const entry = fontSizeState.scaledElements.get(element);
+      if (!entry) return;
       if (!element.isConnected) return;
       if (entry.inlineFontSizeValue) {
         element.style.setProperty('font-size', entry.inlineFontSizeValue, entry.inlineFontSizePriority);
@@ -60,7 +73,7 @@ window.ZoomMethods = (function() {
         element.style.removeProperty('font-size');
       }
     });
-    fontSizeState.scaledElements.clear();
+    fontSizeState.activeElements = [];
   };
 
   return {
@@ -118,6 +131,7 @@ window.ZoomMethods = (function() {
         `;
 
         const textElements = getScalableTextElements();
+        const activeElements = [];
         textElements.forEach((element) => {
           const currentFontSize = parseFloat(getComputedStyle(element).fontSize);
           if (!isFinite(currentFontSize) || currentFontSize <= 0) return;
@@ -127,9 +141,13 @@ window.ZoomMethods = (function() {
             inlineFontSizeValue: element.style.getPropertyValue('font-size'),
             inlineFontSizePriority: element.style.getPropertyPriority('font-size')
           });
+          activeElements.push(element);
         });
 
-        fontSizeState.scaledElements.forEach((entry, element) => {
+        fontSizeState.activeElements = activeElements;
+        fontSizeState.activeElements.forEach((element) => {
+          const entry = fontSizeState.scaledElements.get(element);
+          if (!entry) return;
           if (!element.isConnected) return;
           element.style.setProperty('font-size', `${entry.baseFontSize * validLevel}px`, 'important');
         });

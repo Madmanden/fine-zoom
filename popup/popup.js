@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resetBtn = document.getElementById('resetBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const zoomMethod = document.getElementById('zoomMethod');
-  const FINE_BUTTON_STEP = 0.01;
+  const { ensureContentScriptAndSend } = TextZoomMessaging;
 
   const showError = (message) => {
     const errorDiv = document.getElementById('errorMessage') || document.createElement('div');
@@ -37,29 +37,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const isNativeZoomMethod = (method) => method === 'browser-zoom';
   const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
+  const clampStep = (value, fallback = DEFAULT_ZOOM_STEP) => {
+    const parsed = parseFloat(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(STEP_MIN, Math.min(STEP_MAX, parsed));
+  };
 
   const normalizeLevel = (value) => Math.round(value * 100) / 100;
 
-  const getMethodBounds = (method, popupButtonStep) => {
+  const getMethodBounds = (method) => {
     if (isNativeZoomMethod(method)) {
       return {
         min: BROWSER_ZOOM_MIN,
-        max: BROWSER_ZOOM_MAX,
-        sliderStep: ZOOM_STEP,
-        buttonStep: popupButtonStep
+        max: BROWSER_ZOOM_MAX
       };
     }
 
     return {
       min: ZOOM_MIN,
-      max: ZOOM_MAX,
-      sliderStep: ZOOM_STEP,
-      buttonStep: popupButtonStep
+      max: ZOOM_MAX
     };
   };
 
-  const clampForMethod = (level, method, popupButtonStep) => {
-    const bounds = getMethodBounds(method, popupButtonStep);
+  const clampForMethod = (level, method) => {
+    const bounds = getMethodBounds(method);
     const parsed = parseFloat(level);
     if (!Number.isFinite(parsed)) return DEFAULT_LEVEL;
     return normalizeLevel(Math.max(bounds.min, Math.min(bounds.max, parsed)));
@@ -96,7 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'perSiteZoom',
       'defaultLevel',
       'defaultMethod',
-      'defaultPopupButtonStep'
+      'defaultZoomStep',
+      'defaultFineZoomStep'
     ]);
   } catch (error) {
     console.error('Fine Zoom: Failed to load settings', error);
@@ -109,19 +111,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   const siteConfig = perSiteZoom[domain];
   let currentMethod = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
 
-  const parsedButtonStep = parseFloat(data.defaultPopupButtonStep);
-  const popupButtonStep = Number.isFinite(parsedButtonStep)
-    ? Math.max(POPUP_BUTTON_STEP_MIN, Math.min(POPUP_BUTTON_STEP_MAX, parsedButtonStep))
-    : DEFAULT_POPUP_BUTTON_STEP;
-
-  let currentLevel = clampForMethod(siteConfig?.level ?? defaultLevel, currentMethod, popupButtonStep);
+  const zoomStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
+  const fineZoomStep = clampStep(data.defaultFineZoomStep, DEFAULT_FINE_ZOOM_STEP);
+  let currentLevel = clampForMethod(siteConfig?.level ?? defaultLevel, currentMethod);
 
   const applySliderBounds = (method) => {
-    const bounds = getMethodBounds(method, popupButtonStep);
+    const bounds = getMethodBounds(method);
     zoomSlider.min = String(bounds.min);
     zoomSlider.max = String(bounds.max);
-    zoomSlider.step = String(bounds.sliderStep);
+    zoomSlider.step = String(zoomStep);
   };
+
+  fineZoomOut.textContent = `-${fineZoomStep.toFixed(2)}`;
+  fineZoomIn.textContent = `+${fineZoomStep.toFixed(2)}`;
+  fineZoomOut.setAttribute('aria-label', `Fine zoom out (${fineZoomStep.toFixed(2)})`);
+  fineZoomIn.setAttribute('aria-label', `Fine zoom in (${fineZoomStep.toFixed(2)})`);
 
   applySliderBounds(currentMethod);
   const syncLevelDisplay = () => {
@@ -131,27 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
   syncLevelDisplay();
 
-  const ensureContentScriptAndSend = async (message) => {
-    try {
-      await chrome.tabs.sendMessage(tab.id, message);
-      return true;
-    } catch (error) {
-      const messageText = error?.message || String(error);
-      if (!messageText.includes('Receiving end does not exist')) {
-        throw error;
-      }
-    }
-
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id, allFrames: true },
-      files: ['shared/constants.js', 'shared/utils.js', 'content/zoom-methods.js', 'content/content.js']
-    });
-
-    await chrome.tabs.sendMessage(tab.id, message);
-    return true;
-  };
-
   let latestApplyToken = 0;
+  let latestPersistToken = 0;
 
   const applyNativeZoom = async (level) => {
     const response = await chrome.runtime.sendMessage({
@@ -180,7 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const applyContentZoom = async (level, method) => {
     await chrome.tabs.setZoom(tab.id, 1.0);
-    await ensureContentScriptAndSend({
+    await ensureContentScriptAndSend(tab.id, {
       action: 'setZoom',
       level,
       method
@@ -191,7 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const applyZoomOnly = async (level, method) => {
     const normalizedMethod = normalizeMethod(method);
-    const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+    const clampedLevel = clampForMethod(level, normalizedMethod);
     const applyToken = ++latestApplyToken;
 
     currentMethod = normalizedMethod;
@@ -229,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const persistZoom = async (level, method) => {
     const normalizedMethod = normalizeMethod(method);
-    const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+    const clampedLevel = clampForMethod(level, normalizedMethod);
     const shouldDeletePerSite = Math.abs(clampedLevel - 1.0) < 0.001;
 
     const newPerSiteZoom = { ...perSiteZoom };
@@ -252,14 +237,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const applyAndPersist = async (level, method) => {
+    const persistToken = ++latestPersistToken;
     const applyResult = await applyZoomOnly(level, method);
     if (!applyResult.success) return;
+    if (persistToken !== latestPersistToken) return;
     await persistZoom(applyResult.level, applyResult.method);
   };
 
   if (isNativeZoomMethod(currentMethod)) {
     try {
-      const nativeLevel = clampForMethod(await getNativeZoom(), currentMethod, popupButtonStep);
+      const nativeLevel = clampForMethod(await getNativeZoom(), currentMethod);
       if (nativeLevel !== currentLevel) {
         currentLevel = nativeLevel;
         syncLevelDisplay();
@@ -269,53 +256,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  zoomSlider.addEventListener('input', async (e) => {
+  zoomSlider.addEventListener('input', (e) => {
     const level = parseFloat(e.target.value);
-    await applyZoomOnly(level, currentMethod);
+    void applyZoomOnly(level, currentMethod);
   });
 
-  zoomSlider.addEventListener('change', async (e) => {
+  zoomSlider.addEventListener('change', (e) => {
     const level = parseFloat(e.target.value);
-    const applyResult = await applyZoomOnly(level, currentMethod);
-    if (!applyResult.success) return;
-    await persistZoom(applyResult.level, applyResult.method);
+    const persistToken = ++latestPersistToken;
+    void (async () => {
+      const applyResult = await applyZoomOnly(level, currentMethod);
+      if (!applyResult.success) return;
+      if (persistToken !== latestPersistToken) return;
+      await persistZoom(applyResult.level, applyResult.method);
+    })();
   });
 
   zoomIn.addEventListener('click', () => {
-    const bounds = getMethodBounds(currentMethod, popupButtonStep);
-    const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + bounds.buttonStep));
-    applyAndPersist(newLevel, currentMethod);
+    const bounds = getMethodBounds(currentMethod);
+    const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + zoomStep));
+    void applyAndPersist(newLevel, currentMethod);
   });
 
   zoomOut.addEventListener('click', () => {
-    const bounds = getMethodBounds(currentMethod, popupButtonStep);
-    const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - bounds.buttonStep));
-    applyAndPersist(newLevel, currentMethod);
+    const bounds = getMethodBounds(currentMethod);
+    const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - zoomStep));
+    void applyAndPersist(newLevel, currentMethod);
   });
 
   fineZoomIn.addEventListener('click', () => {
-    const bounds = getMethodBounds(currentMethod, popupButtonStep);
-    const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + FINE_BUTTON_STEP));
-    applyAndPersist(newLevel, currentMethod);
+    const bounds = getMethodBounds(currentMethod);
+    const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + fineZoomStep));
+    void applyAndPersist(newLevel, currentMethod);
   });
 
   fineZoomOut.addEventListener('click', () => {
-    const bounds = getMethodBounds(currentMethod, popupButtonStep);
-    const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - FINE_BUTTON_STEP));
-    applyAndPersist(newLevel, currentMethod);
+    const bounds = getMethodBounds(currentMethod);
+    const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - fineZoomStep));
+    void applyAndPersist(newLevel, currentMethod);
   });
 
   resetBtn.addEventListener('click', () => {
     const resetLevel = isNativeZoomMethod(currentMethod)
-      ? clampForMethod(defaultLevel, 'browser-zoom', popupButtonStep)
-      : clampForMethod(defaultLevel, currentMethod, popupButtonStep);
-    applyAndPersist(resetLevel, currentMethod);
+      ? clampForMethod(defaultLevel, 'browser-zoom')
+      : clampForMethod(defaultLevel, currentMethod);
+    void applyAndPersist(resetLevel, currentMethod);
   });
 
   zoomMethod.addEventListener('change', (e) => {
     const method = normalizeMethod(e.target.value);
-    const nextLevel = clampForMethod(currentLevel, method, popupButtonStep);
-    applyAndPersist(nextLevel, method);
+    const nextLevel = clampForMethod(currentLevel, method);
+    void applyAndPersist(nextLevel, method);
   });
 
 });

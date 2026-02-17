@@ -1,6 +1,7 @@
-importScripts('shared/constants.js', 'shared/utils.js');
+importScripts('shared/constants.js', 'shared/utils.js', 'shared/messaging.js');
 
 const { isDomainExcluded } = TextZoomUtils;
+const { ensureContentScriptAndSend } = TextZoomMessaging;
 const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
@@ -17,6 +18,12 @@ const clampNativeZoom = (level) => {
   const normalized = Number.parseFloat(level);
   if (!Number.isFinite(normalized)) return DEFAULT_LEVEL;
   return Math.max(BROWSER_ZOOM_MIN, Math.min(BROWSER_ZOOM_MAX, normalized));
+};
+
+const clampStep = (value, fallback = DEFAULT_ZOOM_STEP) => {
+  const normalized = Number.parseFloat(value);
+  if (!Number.isFinite(normalized)) return fallback;
+  return Math.max(STEP_MIN, Math.min(STEP_MAX, normalized));
 };
 
 const areZoomLevelsEqual = (a, b) => {
@@ -115,26 +122,6 @@ const applyMethodZoom = async (tabId, level, method) => {
   return applyContentZoom(tabId, level, normalizedMethod);
 };
 
-const ensureContentScriptAndSend = async (tabId, message) => {
-  try {
-    await chrome.tabs.sendMessage(tabId, message);
-    return true;
-  } catch (error) {
-    const messageText = error?.message || String(error);
-    if (!messageText.includes('Receiving end does not exist')) {
-      throw error;
-    }
-  }
-
-  await chrome.scripting.executeScript({
-    target: { tabId, allFrames: true },
-    files: ['shared/constants.js', 'shared/utils.js', 'content/zoom-methods.js', 'content/content.js']
-  });
-
-  await chrome.tabs.sendMessage(tabId, message);
-  return true;
-};
-
 const enqueueTabDeltaTask = (tabId, task) => {
   const previous = tabDeltaQueues.get(tabId) ?? Promise.resolve();
   const next = previous
@@ -215,7 +202,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   const defaults = {
     defaultMethod: DEFAULT_METHOD,
     defaultLevel: DEFAULT_LEVEL,
-    defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
+    defaultZoomStep: DEFAULT_ZOOM_STEP,
+    defaultFineZoomStep: DEFAULT_FINE_ZOOM_STEP,
     enableCtrlWheelHijack: true,
     enableCtrlKeyHijack: true,
     perSiteZoom: {},
@@ -225,7 +213,11 @@ chrome.runtime.onInstalled.addListener(async () => {
   const toSet = {};
   for (const [key, value] of Object.entries(defaults)) {
     if (!(key in existing)) {
-      toSet[key] = value;
+      if (key === 'defaultZoomStep') {
+        toSet[key] = clampStep(existing.defaultPopupButtonStep, DEFAULT_ZOOM_STEP);
+      } else {
+        toSet[key] = value;
+      }
     }
   }
 
@@ -373,6 +365,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         'perSiteZoom',
         'defaultLevel',
         'defaultMethod',
+        'defaultZoomStep',
         'excludedSites'
       ]);
 
@@ -393,7 +386,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         currentZoom = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
       }
 
-      const delta = Math.sign(requestedDelta) * ZOOM_STEP;
+      const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
+      const delta = Math.sign(requestedDelta) * configuredStep;
       let newZoom;
       if (isNativeZoomMethod(method)) {
         newZoom = clampNativeZoom(currentZoom + delta);
@@ -439,6 +433,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         'perSiteZoom',
         'defaultLevel',
         'defaultMethod',
+        'defaultZoomStep',
         'excludedSites'
       ]);
 
@@ -460,16 +455,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
 
       let newZoom;
+      const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
       switch (command) {
         case 'zoom-in':
           newZoom = isNativeZoomMethod(method)
-            ? clampNativeZoom(currentZoom + ZOOM_STEP)
-            : clampContentZoom(currentZoom + ZOOM_STEP);
+            ? clampNativeZoom(currentZoom + configuredStep)
+            : clampContentZoom(currentZoom + configuredStep);
           break;
         case 'zoom-out':
           newZoom = isNativeZoomMethod(method)
-            ? clampNativeZoom(currentZoom - ZOOM_STEP)
-            : clampContentZoom(currentZoom - ZOOM_STEP);
+            ? clampNativeZoom(currentZoom - configuredStep)
+            : clampContentZoom(currentZoom - configuredStep);
           break;
         case 'zoom-reset':
           newZoom = isNativeZoomMethod(method)
@@ -532,6 +528,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     'perSiteZoom',
     'defaultLevel',
     'defaultMethod',
+    'defaultZoomStep',
     'excludedSites'
   ]);
 
@@ -551,17 +548,18 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 
   let newZoom = currentZoom;
+  const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
 
   switch (command) {
     case 'zoom-in':
       newZoom = isNativeZoomMethod(method)
-        ? Math.min(BROWSER_ZOOM_MAX, currentZoom + BROWSER_ZOOM_STEP)
-        : Math.min(ZOOM_MAX, currentZoom + ZOOM_STEP);
+        ? Math.min(BROWSER_ZOOM_MAX, currentZoom + configuredStep)
+        : Math.min(ZOOM_MAX, currentZoom + configuredStep);
       break;
     case 'zoom-out':
       newZoom = isNativeZoomMethod(method)
-        ? Math.max(BROWSER_ZOOM_MIN, currentZoom - BROWSER_ZOOM_STEP)
-        : Math.max(ZOOM_MIN, currentZoom - ZOOM_STEP);
+        ? Math.max(BROWSER_ZOOM_MIN, currentZoom - configuredStep)
+        : Math.max(ZOOM_MIN, currentZoom - configuredStep);
       break;
     case 'zoom-reset':
       newZoom = isNativeZoomMethod(method)
