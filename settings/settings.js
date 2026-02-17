@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const excludedSites = document.getElementById('excludedSites');
   const saveExcluded = document.getElementById('saveExcluded');
   const debugHighlightScaledText = document.getElementById('debugHighlightScaledText');
+  const enableCtrlWheelHijack = document.getElementById('enableCtrlWheelHijack');
+  const enableCtrlKeyHijack = document.getElementById('enableCtrlKeyHijack');
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
   const clampPopupButtonStep = (value) => {
@@ -37,7 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       'defaultPopupButtonStep',
       'perSiteZoom',
       'excludedSites',
-      'debugHighlightScaledText'
+      'debugHighlightScaledText',
+      'enableCtrlWheelHijack',
+      'enableCtrlKeyHijack'
     ]);
     
     const method = data.defaultMethod ?? DEFAULT_METHOD;
@@ -57,6 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     excludedSites.value = excluded.join('\n');
 
     debugHighlightScaledText.checked = data.debugHighlightScaledText ?? DEFAULT_DEBUG_HIGHLIGHT;
+    enableCtrlWheelHijack.checked = data.enableCtrlWheelHijack ?? true;
+    enableCtrlKeyHijack.checked = data.enableCtrlKeyHijack ?? true;
   };
   
   const renderSiteList = (perSiteZoom) => {
@@ -140,6 +146,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({ debugHighlightScaledText: e.target.checked });
     showToast('Debug highlight updated');
   });
+
+  enableCtrlWheelHijack.addEventListener('change', async (e) => {
+    await chrome.storage.local.set({ enableCtrlWheelHijack: e.target.checked });
+    showToast('Ctrl+Wheel hijack updated');
+  });
+
+  enableCtrlKeyHijack.addEventListener('change', async (e) => {
+    await chrome.storage.local.set({ enableCtrlKeyHijack: e.target.checked });
+    showToast('Ctrl key hijack updated');
+  });
   
   resetAll.addEventListener('click', async () => {
     if (confirm('Are you sure you want to reset all settings to defaults?')) {
@@ -149,7 +165,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
         perSiteZoom: {},
         excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
-        debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
+        debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT,
+        enableCtrlWheelHijack: true,
+        enableCtrlKeyHijack: true
       });
       loadSettings();
     }

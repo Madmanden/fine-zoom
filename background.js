@@ -134,6 +134,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get([
     'defaultMethod',
     'defaultLevel',
+    'enableCtrlWheelHijack',
+    'enableCtrlKeyHijack',
     'perSiteZoom',
     'excludedSites',
     'didMigrateToFontSizeDefault',
@@ -145,6 +147,8 @@ chrome.runtime.onInstalled.addListener(async () => {
     defaultMethod: DEFAULT_METHOD,
     defaultLevel: DEFAULT_LEVEL,
     defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
+    enableCtrlWheelHijack: true,
+    enableCtrlKeyHijack: true,
     perSiteZoom: {},
     excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
     debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
@@ -226,19 +230,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'getCtrlWheelEligibility') {
+  if (request.action === 'getHijackEligibility') {
     const tabUrl = sender.tab?.url;
     const domain = toDomain(tabUrl);
 
     if (!domain) {
-      sendResponse({ success: true, enabled: false });
+      sendResponse({ success: true, enabledForPage: false, ctrlWheelEnabled: false, ctrlKeyEnabled: false });
       return;
     }
 
-    chrome.storage.local.get(['excludedSites'])
+    chrome.storage.local.get(['excludedSites', 'enableCtrlWheelHijack', 'enableCtrlKeyHijack'])
       .then((data) => {
         const excludedSites = data.excludedSites ?? [];
-        sendResponse({ success: true, enabled: !isDomainExcluded(domain, excludedSites) });
+        const enabledForPage = !isDomainExcluded(domain, excludedSites);
+        sendResponse({
+          success: true,
+          enabledForPage,
+          ctrlWheelEnabled: enabledForPage && (data.enableCtrlWheelHijack ?? true),
+          ctrlKeyEnabled: enabledForPage && (data.enableCtrlKeyHijack ?? true)
+        });
       })
       .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
     return true;
@@ -290,6 +300,87 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         newZoom = clampNativeZoom(currentZoom + delta);
       } else {
         newZoom = clampContentZoom(currentZoom + delta);
+      }
+
+      if (newZoom === currentZoom) {
+        return { success: true, level: currentZoom };
+      }
+
+      const appliedLevel = await applyMethodZoom(tabId, newZoom, method);
+
+      await chrome.storage.local.set({
+        perSiteZoom: {
+          ...perSiteZoom,
+          [domain]: { level: appliedLevel, method }
+        }
+      });
+
+      return { success: true, level: appliedLevel };
+    })
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
+
+  if (request.action === 'adjustZoomByCommand') {
+    const tabId = sender.tab?.id;
+    const domain = toDomain(sender.tab?.url);
+
+    if (typeof tabId !== 'number' || !domain) {
+      sendResponse({ success: false, error: 'Missing tab context' });
+      return;
+    }
+
+    const command = request.command;
+    if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) {
+      sendResponse({ success: false, error: 'Invalid command' });
+      return;
+    }
+
+    enqueueTabDeltaTask(tabId, async () => {
+      const data = await chrome.storage.local.get([
+        'perSiteZoom',
+        'defaultLevel',
+        'defaultMethod',
+        'excludedSites'
+      ]);
+
+      const excludedSites = data.excludedSites ?? [];
+      if (isDomainExcluded(domain, excludedSites)) {
+        return { success: true, level: 1.0, excluded: true };
+      }
+
+      const perSiteZoom = data.perSiteZoom || {};
+      const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
+      const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
+      const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
+
+      let currentZoom;
+      if (isNativeZoomMethod(method)) {
+        currentZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
+      } else {
+        currentZoom = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
+      }
+
+      let newZoom;
+      switch (command) {
+        case 'zoom-in':
+          newZoom = isNativeZoomMethod(method)
+            ? clampNativeZoom(currentZoom + ZOOM_STEP)
+            : clampContentZoom(currentZoom + ZOOM_STEP);
+          break;
+        case 'zoom-out':
+          newZoom = isNativeZoomMethod(method)
+            ? clampNativeZoom(currentZoom - ZOOM_STEP)
+            : clampContentZoom(currentZoom - ZOOM_STEP);
+          break;
+        case 'zoom-reset':
+          newZoom = isNativeZoomMethod(method)
+            ? clampNativeZoom(defaultLevel)
+            : clampContentZoom(defaultLevel);
+          break;
+        default:
+          return { success: false, error: 'Invalid command' };
       }
 
       if (newZoom === currentZoom) {

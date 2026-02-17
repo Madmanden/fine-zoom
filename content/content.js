@@ -15,6 +15,7 @@
   let currentDomain = '';
   let isCurrentDomainExcluded = false;
   let isCtrlWheelEnabled = false;
+  let isCtrlKeyEnabled = false;
   let didInitializeSettings = false;
   let ctrlWheelAccumulator = 0;
   let pendingWheelSteps = 0;
@@ -76,12 +77,14 @@
     wheelFlushInProgress = false;
   };
 
-  const refreshCtrlWheelEligibility = async () => {
+  const refreshHijackEligibility = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getCtrlWheelEligibility' });
-      isCtrlWheelEnabled = Boolean(response?.success && response?.enabled);
+      const response = await chrome.runtime.sendMessage({ action: 'getHijackEligibility' });
+      isCtrlWheelEnabled = Boolean(response?.success && response?.ctrlWheelEnabled);
+      isCtrlKeyEnabled = Boolean(response?.success && response?.ctrlKeyEnabled);
     } catch {
       isCtrlWheelEnabled = false;
+      isCtrlKeyEnabled = false;
     }
   };
 
@@ -108,6 +111,46 @@
     }, { capture: true, passive: false });
   };
 
+  const isEditableTarget = (target) => {
+    if (!(target instanceof Element)) return false;
+    if (target.closest('[contenteditable="true"]')) return true;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  };
+
+  const setupCtrlKeyHijack = () => {
+    window.addEventListener('keydown', (event) => {
+      if (!event.ctrlKey || event.altKey) return;
+      if (!didInitializeSettings || !isCtrlKeyEnabled) return;
+      if (isEditableTarget(event.target)) return;
+
+      let command = null;
+      const key = event.key;
+      const code = event.code;
+
+      if (key === '+' || key === '=' || code === 'NumpadAdd') {
+        command = 'zoom-in';
+      } else if (key === '-' || key === '_' || code === 'NumpadSubtract') {
+        command = 'zoom-out';
+      } else if (key === '0' || code === 'Digit0' || code === 'Numpad0') {
+        command = 'zoom-reset';
+      }
+
+      if (!command) return;
+
+      event.preventDefault();
+      void chrome.runtime.sendMessage({ action: 'adjustZoomByCommand', command })
+        .then((response) => {
+          if (response?.success && typeof response.level === 'number') {
+            currentLevel = response.level;
+          }
+        })
+        .catch((error) => {
+          console.error('Text Zoom: Failed to adjust zoom from Ctrl+key', error);
+        });
+    }, { capture: true });
+  };
+
   const initializeZoom = async () => {
     try {
       const url = new URL(window.location.href);
@@ -124,7 +167,7 @@
 
       const excludedSites = data.excludedSites ?? [];
       isCurrentDomainExcluded = isDomainExcluded(domain, excludedSites);
-      await refreshCtrlWheelEligibility();
+      await refreshHijackEligibility();
 
       if (isCurrentDomainExcluded) {
         didInitializeSettings = true;
@@ -161,6 +204,7 @@
   };
 
   setupCtrlWheelHijack();
+  setupCtrlKeyHijack();
 
   // Run immediately. Since run_at is document_start, document.documentElement
   // might not be available yet, but initializeZoom handles that.
@@ -171,7 +215,10 @@
     if (changes.excludedSites && currentDomain) {
       const excludedSites = changes.excludedSites.newValue ?? [];
       isCurrentDomainExcluded = isDomainExcluded(currentDomain, excludedSites);
-      void refreshCtrlWheelEligibility();
+      void refreshHijackEligibility();
+    }
+    if (changes.enableCtrlWheelHijack || changes.enableCtrlKeyHijack) {
+      void refreshHijackEligibility();
     }
     if (!changes.debugHighlightScaledText) return;
     debugHighlightScaledText = changes.debugHighlightScaledText.newValue ?? DEFAULT_DEBUG_HIGHLIGHT;

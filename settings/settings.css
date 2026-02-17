@@ -133,6 +133,26 @@ main {
   font-size: 14px;
 }
 
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #333;
+  font-size: 14px;
+}
+
+.toggle-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #667eea;
+}
+
 #defaultLevel {
   flex: 1;
   height: 8px;
