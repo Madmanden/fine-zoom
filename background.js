@@ -130,11 +130,6 @@ const applyStoredZoomForTab = async (tabId, tabUrl) => {
 
   const excludedSites = data.excludedSites ?? [];
   if (isDomainExcluded(domain, excludedSites)) {
-    const currentNativeZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
-    if (!areZoomLevelsEqual(currentNativeZoom, 1.0)) {
-      await chrome.tabs.setZoom(tabId, 1.0);
-    }
-    await clearContentZoom(tabId);
     return;
   }
 
