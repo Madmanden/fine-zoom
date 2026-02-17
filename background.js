@@ -200,7 +200,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     enableCtrlWheelHijack: true,
     enableCtrlKeyHijack: true,
     perSiteZoom: {},
-    excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
+    excludedSites: [],
     debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
   };
 
