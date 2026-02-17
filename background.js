@@ -75,7 +75,7 @@ const clearContentZoom = async (tabId) => {
       method: 'font-size'
     });
   } catch (error) {
-    console.error('Text Zoom: Failed to clear content zoom', error);
+    console.error('Fine Zoom: Failed to clear content zoom', error);
   }
 };
 
@@ -507,7 +507,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   try {
     await applyStoredZoomForTab(tabId, tab.url);
   } catch (error) {
-    console.error('Text Zoom: Failed to apply stored zoom on tab update', error);
+    console.error('Fine Zoom: Failed to apply stored zoom on tab update', error);
   }
 });
 
@@ -516,7 +516,7 @@ chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
     const tab = await chrome.tabs.get(zoomChangeInfo.tabId);
     await syncNativeZoomToStorageIfNeeded(zoomChangeInfo.tabId, tab?.url, zoomChangeInfo.newZoomFactor);
   } catch (error) {
-    console.error('Text Zoom: Failed to sync native zoom change', error);
+    console.error('Fine Zoom: Failed to sync native zoom change', error);
   }
 });
 

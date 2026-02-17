@@ -2,7 +2,7 @@
   'use strict';
 
   if (typeof ZoomMethods === 'undefined') {
-    console.error('Text Zoom: ZoomMethods not loaded');
+    console.error('Fine Zoom: ZoomMethods not loaded');
     return;
   }
 
@@ -23,21 +23,21 @@
   const CTRL_WHEEL_STEP = ZOOM_STEP;
   const CTRL_WHEEL_DELTA_THRESHOLD = 100;
   const removeLegacyTransformStyle = () => {
-    const legacyStyle = document.getElementById('text-zoom-transform-style');
+    const legacyStyle = document.getElementById('fine-zoom-transform-style');
     if (legacyStyle) legacyStyle.remove();
   };
 
   const applyDebugFlag = () => {
     if (!document.documentElement) return;
     document.documentElement.setAttribute(
-      'data-text-zoom-debug-highlight',
+      'data-fine-zoom-debug-highlight',
       debugHighlightScaledText ? '1' : '0'
     );
   };
 
   const applyZoom = (level, method) => {
     if (!ZoomMethods[method]) {
-      console.warn(`Text Zoom: Unknown zoom method: ${method}`);
+      console.warn(`Fine Zoom: Unknown zoom method: ${method}`);
       return;
     }
 
@@ -69,7 +69,7 @@
           currentLevel = response.level;
         }
       } catch (error) {
-        console.error('Text Zoom: Failed to adjust zoom from Ctrl+Wheel', error);
+        console.error('Fine Zoom: Failed to adjust zoom from Ctrl+Wheel', error);
         pendingWheelSteps = 0;
       }
     }
@@ -146,7 +146,7 @@
           }
         })
         .catch((error) => {
-          console.error('Text Zoom: Failed to adjust zoom from Ctrl+key', error);
+          console.error('Fine Zoom: Failed to adjust zoom from Ctrl+key', error);
         });
     }, { capture: true });
   };
@@ -199,7 +199,7 @@
 
       didInitializeSettings = true;
     } catch (e) {
-      console.error('Text Zoom: Failed to initialize', e);
+      console.error('Fine Zoom: Failed to initialize', e);
     }
   };
 

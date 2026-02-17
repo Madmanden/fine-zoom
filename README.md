@@ -1,10 +1,10 @@
-# Text Zoom Extension
+# Fine Zoom Extension
 
-[![Tests](https://github.com/Madmanden/text-zoom/actions/workflows/ci.yml/badge.svg)](https://github.com/Madmanden/text-zoom/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/github/v/tag/Madmanden/text-zoom?sort=semver)](https://github.com/Madmanden/text-zoom/tags)
-[![License](https://img.shields.io/github/license/Madmanden/text-zoom)](#license)
+[![Tests](https://github.com/Madmanden/fine-zoom/actions/workflows/ci.yml/badge.svg)](https://github.com/Madmanden/fine-zoom/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/tag/Madmanden/fine-zoom?sort=semver)](https://github.com/Madmanden/fine-zoom/tags)
+[![License](https://img.shields.io/github/license/Madmanden/fine-zoom)](#license)
 
-Text Zoom is a Manifest V3 browser extension for native browser zoom with finer control than Chrome's built-in zoom — granular steps, per-site memory, and multiple input methods.
+Fine Zoom is a Manifest V3 browser extension for native browser zoom with finer control than Chrome's built-in zoom — granular steps, per-site memory, and multiple input methods.
 
 It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
 
@@ -141,7 +141,7 @@ node test-logic.js
 
 ## Privacy
 
-Text Zoom does not collect, store, or transmit personal data.
+Fine Zoom does not collect, store, or transmit personal data.
 The extension modifies text size locally in your browser.
 Settings are stored locally using Chrome storage (`chrome.storage.local`) and never leave your device.
 The extension requires page access only to apply zoom behavior on visited pages.

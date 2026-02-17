@@ -5,7 +5,7 @@ window.ZoomMethods = (function() {
     return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, num));
   };
 
-  const FONT_SIZE_STYLE_ID = 'text-zoom-font-style';
+  const FONT_SIZE_STYLE_ID = 'fine-zoom-font-style';
   const FONT_SIZE_SKIP_TAGS = new Set([
     'SCRIPT',
     'STYLE',
@@ -72,10 +72,10 @@ window.ZoomMethods = (function() {
     'css-zoom': {
       apply: (level) => {
         const validLevel = validateZoomLevel(level);
-        let style = document.getElementById('text-zoom-style');
+        let style = document.getElementById('fine-zoom-style');
         if (!style) {
           style = document.createElement('style');
-          style.id = 'text-zoom-style';
+          style.id = 'fine-zoom-style';
           document.documentElement.appendChild(style);
         }
         style.textContent = `
@@ -85,7 +85,7 @@ window.ZoomMethods = (function() {
         `;
       },
       remove: () => {
-        const style = document.getElementById('text-zoom-style');
+        const style = document.getElementById('fine-zoom-style');
         if (style) style.remove();
       }
     },

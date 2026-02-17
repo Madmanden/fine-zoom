@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       'defaultPopupButtonStep'
     ]);
   } catch (error) {
-    console.error('Text Zoom: Failed to load settings', error);
+    console.error('Fine Zoom: Failed to load settings', error);
     showError('Failed to load settings');
     return;
   }
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         appliedLevel = await applyContentZoom(clampedLevel, normalizedMethod);
       }
     } catch (error) {
-      console.error('Text Zoom: Failed to apply zoom', error);
+      console.error('Fine Zoom: Failed to apply zoom', error);
       showError('Zoom could not be applied on this page.');
       return { success: false };
     }
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
       perSiteZoom = newPerSiteZoom;
     } catch (error) {
-      console.error('Text Zoom: Failed to save zoom', error);
+      console.error('Fine Zoom: Failed to save zoom', error);
       showError('Failed to save zoom');
       return false;
     }
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         syncLevelDisplay();
       }
     } catch (error) {
-      console.error('Text Zoom: Failed to read native zoom', error);
+      console.error('Fine Zoom: Failed to read native zoom', error);
     }
   }
 
