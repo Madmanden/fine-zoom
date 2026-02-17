@@ -13,6 +13,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   const defaults = {
     defaultMethod: DEFAULT_METHOD,
     defaultLevel: DEFAULT_LEVEL,
+    defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
     perSiteZoom: {},
     excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
     debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT

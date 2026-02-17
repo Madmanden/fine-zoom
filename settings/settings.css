@@ -109,6 +109,30 @@ main {
   gap: 16px;
 }
 
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#defaultPopupButtonStep {
+  width: 120px;
+  padding: 10px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+#defaultPopupButtonStep:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.unit-label {
+  color: #666;
+  font-size: 14px;
+}
+
 #defaultLevel {
   flex: 1;
   height: 8px;

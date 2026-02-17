@@ -1,6 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const POPUP_BUTTON_STEP = 0.01;
-
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomLevel = document.getElementById('zoomLevel');
   const zoomIn = document.getElementById('zoomIn');
@@ -48,7 +46,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     data = await chrome.storage.local.get([
       'perSiteZoom',
       'defaultLevel',
-      'defaultMethod'
+      'defaultMethod',
+      'defaultPopupButtonStep'
     ]);
   } catch (error) {
     console.error('Text Zoom: Failed to load settings', error);
@@ -60,6 +59,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const siteConfig = data.perSiteZoom?.[domain];
   let currentLevel = siteConfig?.level ?? defaultLevel;
   let currentMethod = siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD;
+  const parsedButtonStep = parseFloat(data.defaultPopupButtonStep);
+  const buttonStep = Number.isFinite(parsedButtonStep)
+    ? Math.max(POPUP_BUTTON_STEP_MIN, Math.min(POPUP_BUTTON_STEP_MAX, parsedButtonStep))
+    : DEFAULT_POPUP_BUTTON_STEP;
 
   zoomSlider.value = currentLevel;
   zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
@@ -130,12 +133,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   zoomIn.addEventListener('click', () => {
-    const newLevel = Math.min(ZOOM_MAX, normalizeLevel(currentLevel + POPUP_BUTTON_STEP));
+    const newLevel = Math.min(ZOOM_MAX, normalizeLevel(currentLevel + buttonStep));
     updateZoom(newLevel, currentMethod);
   });
 
   zoomOut.addEventListener('click', () => {
-    const newLevel = Math.max(ZOOM_MIN, normalizeLevel(currentLevel - POPUP_BUTTON_STEP));
+    const newLevel = Math.max(ZOOM_MIN, normalizeLevel(currentLevel - buttonStep));
     updateZoom(newLevel, currentMethod);
   });
 

@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const defaultMethodRadios = document.querySelectorAll('input[name="defaultMethod"]');
   const defaultLevel = document.getElementById('defaultLevel');
   const defaultLevelDisplay = document.getElementById('defaultLevelDisplay');
+  const defaultPopupButtonStep = document.getElementById('defaultPopupButtonStep');
   const siteList = document.getElementById('siteList');
   const clearAllSites = document.getElementById('clearAllSites');
   const excludedSites = document.getElementById('excludedSites');
@@ -9,6 +10,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const debugHighlightScaledText = document.getElementById('debugHighlightScaledText');
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
+  const clampPopupButtonStep = (value) => {
+    if (!Number.isFinite(value)) return DEFAULT_POPUP_BUTTON_STEP;
+    const clamped = Math.max(POPUP_BUTTON_STEP_MIN, Math.min(POPUP_BUTTON_STEP_MAX, value));
+    return Math.round(clamped * 100) / 100;
+  };
 
   const escapeHtml = (str) => {
     const div = document.createElement('div');
@@ -28,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const data = await chrome.storage.local.get([
       'defaultMethod',
       'defaultLevel',
+      'defaultPopupButtonStep',
       'perSiteZoom',
       'excludedSites',
       'debugHighlightScaledText'
@@ -40,6 +47,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const level = data.defaultLevel ?? DEFAULT_LEVEL;
     defaultLevel.value = level;
     defaultLevelDisplay.textContent = level.toFixed(2) + 'x';
+
+    const popupStep = clampPopupButtonStep(parseFloat(data.defaultPopupButtonStep));
+    defaultPopupButtonStep.value = popupStep.toFixed(2);
 
     renderSiteList(data.perSiteZoom ?? {});
 
@@ -102,6 +112,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const level = parseFloat(e.target.value);
     await chrome.storage.local.set({ defaultLevel: level });
   });
+
+  defaultPopupButtonStep.addEventListener('change', async (e) => {
+    const value = clampPopupButtonStep(parseFloat(e.target.value));
+    defaultPopupButtonStep.value = value.toFixed(2);
+    await chrome.storage.local.set({ defaultPopupButtonStep: value });
+    showToast('Popup button step saved');
+  });
   
   clearAllSites.addEventListener('click', async () => {
     if (confirm('Are you sure you want to clear all site-specific zoom settings?')) {
@@ -129,6 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({
         defaultMethod: DEFAULT_METHOD,
         defaultLevel: DEFAULT_LEVEL,
+        defaultPopupButtonStep: DEFAULT_POPUP_BUTTON_STEP,
         perSiteZoom: {},
         excludedSites: ['youtube.com', 'docs.google.com', 'drive.google.com'],
         debugHighlightScaledText: DEFAULT_DEBUG_HIGHLIGHT
