@@ -43,7 +43,7 @@ window.ZoomMethods = (function() {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
       acceptNode: (node) => {
         if (!(node instanceof Element)) return NodeFilter.FILTER_SKIP;
-        if (FONT_SIZE_SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_SKIP;
+        if (FONT_SIZE_SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
         return hasDirectText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       }
     });

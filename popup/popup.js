@@ -164,14 +164,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const applyContentZoom = async (level, method) => {
-    await chrome.tabs.setZoom(tab.id, 1.0);
-    await ensureContentScriptAndSend(tab.id, {
-      action: 'setZoom',
+    const response = await chrome.runtime.sendMessage({
+      action: 'applyContentZoom',
+      tabId: tab.id,
       level,
       method
     });
-
-    return level;
+    if (!response?.success) {
+      throw new Error(response?.error || 'Content zoom failed');
+    }
+    return response.level;
   };
 
   const applyZoomOnly = async (level, method) => {

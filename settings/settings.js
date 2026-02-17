@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.addEventListener('click', async (e) => {
         const domain = e.target.closest('.site-item').dataset.domain;
         const data = await chrome.storage.local.get('perSiteZoom');
-        const perSiteZoom = data.perSiteZoom ?? {};
+        const perSiteZoom = { ...(data.perSiteZoom ?? {}) };
         delete perSiteZoom[domain];
         await chrome.storage.local.set({ perSiteZoom });
         renderSiteList(perSiteZoom);

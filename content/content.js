@@ -1,6 +1,9 @@
 (function() {
   'use strict';
 
+  if (window.__fineZoomLoaded) return;
+  window.__fineZoomLoaded = true;
+
   if (typeof ZoomMethods === 'undefined') {
     console.error('Fine Zoom: ZoomMethods not loaded');
     return;
@@ -113,7 +116,7 @@
 
   const isEditableTarget = (target) => {
     if (!(target instanceof Element)) return false;
-    if (target.closest('[contenteditable="true"]')) return true;
+    if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true;
     const tag = target.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   };
@@ -235,11 +238,8 @@
       sendResponse({ success });
       return;
     } else if (request.action === 'getZoom') {
-      const url = new URL(window.location.href);
-      const domain = url.hostname;
-
       chrome.storage.local.get(['perSiteZoom', 'defaultLevel', 'defaultMethod'], (data) => {
-        const siteConfig = data.perSiteZoom?.[domain];
+        const siteConfig = data.perSiteZoom?.[currentDomain];
         sendResponse({
           level: siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL,
           method: normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD)
