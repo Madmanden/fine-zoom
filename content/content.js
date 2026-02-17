@@ -116,7 +116,7 @@
 
   const isEditableTarget = (target) => {
     if (!(target instanceof Element)) return false;
-    if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true;
+    if (target.isContentEditable) return true;
     const tag = target.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   };
