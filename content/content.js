@@ -6,6 +6,9 @@
     return;
   }
 
+  if (window.__fineZoomLoaded) return;
+  window.__fineZoomLoaded = true;
+
   const { isDomainExcluded } = TextZoomUtils;
   const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
@@ -113,7 +116,7 @@
 
   const isEditableTarget = (target) => {
     if (!(target instanceof Element)) return false;
-    if (target.closest('[contenteditable="true"]')) return true;
+    if (target.isContentEditable) return true;
     const tag = target.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   };
@@ -235,11 +238,8 @@
       sendResponse({ success });
       return;
     } else if (request.action === 'getZoom') {
-      const url = new URL(window.location.href);
-      const domain = url.hostname;
-
       chrome.storage.local.get(['perSiteZoom', 'defaultLevel', 'defaultMethod'], (data) => {
-        const siteConfig = data.perSiteZoom?.[domain];
+        const siteConfig = data.perSiteZoom?.[currentDomain];
         sendResponse({
           level: siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL,
           method: normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD)
