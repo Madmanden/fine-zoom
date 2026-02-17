@@ -14,6 +14,7 @@
   let debugHighlightScaledText = DEFAULT_DEBUG_HIGHLIGHT;
   let currentDomain = '';
   let isCurrentDomainExcluded = false;
+  let isCtrlWheelEnabled = false;
   let didInitializeSettings = false;
   let ctrlWheelAccumulator = 0;
   let pendingWheelSteps = 0;
@@ -75,25 +76,31 @@
     wheelFlushInProgress = false;
   };
 
+  const refreshCtrlWheelEligibility = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'getCtrlWheelEligibility' });
+      isCtrlWheelEnabled = Boolean(response?.success && response?.enabled);
+    } catch {
+      isCtrlWheelEnabled = false;
+    }
+  };
+
   const setupCtrlWheelHijack = () => {
     window.addEventListener('wheel', (event) => {
       if (!event.ctrlKey || !event.cancelable) return;
-      if (!didInitializeSettings || isCurrentDomainExcluded) return;
+      if (!didInitializeSettings || !isCtrlWheelEnabled) return;
 
       event.preventDefault();
 
-      const unitScale = event.deltaMode === 1 ? 16 : (event.deltaMode === 2 ? window.innerHeight : 1);
-      ctrlWheelAccumulator += event.deltaY * unitScale;
-
-      if (ctrlWheelAccumulator <= -CTRL_WHEEL_DELTA_THRESHOLD) {
-        const steps = Math.floor(Math.abs(ctrlWheelAccumulator) / CTRL_WHEEL_DELTA_THRESHOLD);
-        pendingWheelSteps += steps;
-        ctrlWheelAccumulator += steps * CTRL_WHEEL_DELTA_THRESHOLD;
-      } else if (ctrlWheelAccumulator >= CTRL_WHEEL_DELTA_THRESHOLD) {
-        const steps = Math.floor(ctrlWheelAccumulator / CTRL_WHEEL_DELTA_THRESHOLD);
-        pendingWheelSteps -= steps;
-        ctrlWheelAccumulator -= steps * CTRL_WHEEL_DELTA_THRESHOLD;
-      }
+      const wheelUpdate = TextZoomUtils.accumulateCtrlWheelSteps({
+        accumulator: ctrlWheelAccumulator,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        viewportHeight: window.innerHeight,
+        threshold: CTRL_WHEEL_DELTA_THRESHOLD
+      });
+      ctrlWheelAccumulator = wheelUpdate.accumulator;
+      pendingWheelSteps += wheelUpdate.steps;
 
       if (pendingWheelSteps !== 0) {
         void flushPendingWheelSteps();
@@ -117,7 +124,12 @@
 
       const excludedSites = data.excludedSites ?? [];
       isCurrentDomainExcluded = isDomainExcluded(domain, excludedSites);
-      if (isCurrentDomainExcluded) return;
+      await refreshCtrlWheelEligibility();
+
+      if (isCurrentDomainExcluded) {
+        didInitializeSettings = true;
+        return;
+      }
 
       const siteConfig = data.perSiteZoom?.[domain];
       const level = siteConfig?.level ?? data.defaultLevel ?? DEFAULT_LEVEL;
@@ -141,10 +153,10 @@
           observer.observe(document, { childList: true, subtree: true });
         }
       }
+
+      didInitializeSettings = true;
     } catch (e) {
       console.error('Text Zoom: Failed to initialize', e);
-    } finally {
-      didInitializeSettings = true;
     }
   };
 
@@ -159,6 +171,7 @@
     if (changes.excludedSites && currentDomain) {
       const excludedSites = changes.excludedSites.newValue ?? [];
       isCurrentDomainExcluded = isDomainExcluded(currentDomain, excludedSites);
+      void refreshCtrlWheelEligibility();
     }
     if (!changes.debugHighlightScaledText) return;
     debugHighlightScaledText = changes.debugHighlightScaledText.newValue ?? DEFAULT_DEBUG_HIGHLIGHT;

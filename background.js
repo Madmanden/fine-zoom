@@ -4,6 +4,7 @@ const { isDomainExcluded } = TextZoomUtils;
 const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
+const tabDeltaQueues = new Map();
 
 const clampContentZoom = (level) => {
   const normalized = Number.parseFloat(level);
@@ -87,6 +88,21 @@ const ensureContentScriptAndSend = async (tabId, message) => {
 
   await chrome.tabs.sendMessage(tabId, message);
   return true;
+};
+
+const enqueueTabDeltaTask = (tabId, task) => {
+  const previous = tabDeltaQueues.get(tabId) ?? Promise.resolve();
+  const next = previous
+    .catch(() => {})
+    .then(task);
+
+  tabDeltaQueues.set(tabId, next.finally(() => {
+    if (tabDeltaQueues.get(tabId) === next) {
+      tabDeltaQueues.delete(tabId);
+    }
+  }));
+
+  return next;
 };
 
 const applyStoredZoomForTab = async (tabId, tabUrl) => {
@@ -210,6 +226,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'getCtrlWheelEligibility') {
+    const tabUrl = sender.tab?.url;
+    const domain = toDomain(tabUrl);
+
+    if (!domain) {
+      sendResponse({ success: true, enabled: false });
+      return;
+    }
+
+    chrome.storage.local.get(['excludedSites'])
+      .then((data) => {
+        const excludedSites = data.excludedSites ?? [];
+        sendResponse({ success: true, enabled: !isDomainExcluded(domain, excludedSites) });
+      })
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
+
   if (request.action === 'adjustZoomByDelta') {
     const tabId = sender.tab?.id;
     const domain = toDomain(sender.tab?.url);
@@ -225,7 +259,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
 
-    (async () => {
+    enqueueTabDeltaTask(tabId, async () => {
       const data = await chrome.storage.local.get([
         'perSiteZoom',
         'defaultLevel',
@@ -272,7 +306,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
 
       return { success: true, level: appliedLevel };
-    })()
+    })
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
     return true;

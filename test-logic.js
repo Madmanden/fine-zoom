@@ -1,5 +1,5 @@
 const { ZOOM_MIN, ZOOM_MAX, DEFAULT_LEVEL } = require('./shared/constants.js');
-const { isDomainExcluded, normalizeMethod } = require('./shared/utils.js');
+const { isDomainExcluded, normalizeMethod, accumulateCtrlWheelSteps } = require('./shared/utils.js');
 
 function testDomainExclusion() {
   console.log('Testing domain exclusion...');
@@ -44,6 +44,60 @@ function testMethodNormalization() {
   console.log('✅ Method normalization tests passed');
 }
 
+function testCtrlWheelAccumulation() {
+  console.log('Testing Ctrl+Wheel accumulation...');
+  const threshold = 100;
+
+  let state = { accumulator: 0, steps: 0 };
+  state = accumulateCtrlWheelSteps({
+    accumulator: state.accumulator,
+    deltaY: -120,
+    deltaMode: 0,
+    viewportHeight: 900,
+    threshold
+  });
+
+  if (state.steps !== 1) {
+    throw new Error(`Expected 1 zoom-in step for -120px wheel delta, got ${state.steps}`);
+  }
+
+  state = accumulateCtrlWheelSteps({
+    accumulator: state.accumulator,
+    deltaY: 240,
+    deltaMode: 0,
+    viewportHeight: 900,
+    threshold
+  });
+
+  if (state.steps !== -2) {
+    throw new Error(`Expected -2 zoom-out steps for 240px wheel delta, got ${state.steps}`);
+  }
+
+  const lineMode = accumulateCtrlWheelSteps({
+    accumulator: 0,
+    deltaY: -6,
+    deltaMode: 1,
+    viewportHeight: 900,
+    threshold
+  });
+  if (lineMode.steps !== 0) {
+    throw new Error(`Expected 0 steps for 6 lines (-96px), got ${lineMode.steps}`);
+  }
+
+  const pageMode = accumulateCtrlWheelSteps({
+    accumulator: 0,
+    deltaY: -1,
+    deltaMode: 2,
+    viewportHeight: 900,
+    threshold
+  });
+  if (pageMode.steps !== 9) {
+    throw new Error(`Expected 9 steps for one page delta at 900px viewport, got ${pageMode.steps}`);
+  }
+
+  console.log('✅ Ctrl+Wheel accumulation tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -58,6 +112,7 @@ function testConstants() {
 try {
   testDomainExclusion();
   testMethodNormalization();
+  testCtrlWheelAccumulation();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {
