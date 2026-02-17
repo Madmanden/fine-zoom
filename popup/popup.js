@@ -135,6 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return true;
   };
 
+  let latestApplyToken = 0;
+
   const applyNativeZoom = async (level) => {
     const response = await chrome.runtime.sendMessage({
       action: 'applyNativeZoom',
@@ -160,9 +162,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     return level;
   };
 
-  const updateZoom = async (level, method) => {
+  const applyZoomOnly = async (level, method) => {
     const normalizedMethod = normalizeMethod(method);
     const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+    const applyToken = ++latestApplyToken;
+
     currentMethod = normalizedMethod;
     currentLevel = clampedLevel;
 
@@ -174,68 +178,90 @@ document.addEventListener('DOMContentLoaded', async () => {
     let appliedLevel = clampedLevel;
 
     try {
-      if (isNativeZoomMethod(method)) {
+      if (isNativeZoomMethod(normalizedMethod)) {
         appliedLevel = await applyNativeZoom(clampedLevel);
       } else {
-        appliedLevel = await applyContentZoom(clampedLevel, method);
+        appliedLevel = await applyContentZoom(clampedLevel, normalizedMethod);
       }
     } catch (error) {
       console.error('Text Zoom: Failed to apply zoom', error);
       showError('Zoom could not be applied on this page.');
-      return;
+      return { success: false };
+    }
+
+    if (applyToken !== latestApplyToken) {
+      return { success: false, stale: true };
     }
 
     currentLevel = appliedLevel;
     zoomSlider.value = currentLevel;
     zoomLevel.textContent = currentLevel.toFixed(2) + 'x';
 
+    return { success: true, level: appliedLevel, method: currentMethod };
+  };
+
+  const persistZoom = async (level, method) => {
+    const normalizedMethod = normalizeMethod(method);
+    const clampedLevel = clampForMethod(level, normalizedMethod, popupButtonStep);
+
     const newPerSiteZoom = {
       ...perSiteZoom,
-      [domain]: { level: appliedLevel, method: currentMethod }
+      [domain]: { level: clampedLevel, method: normalizedMethod }
     };
 
     try {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
-      perSiteZoom[domain] = { level: appliedLevel, method: currentMethod };
+      perSiteZoom[domain] = { level: clampedLevel, method: normalizedMethod };
     } catch (error) {
       console.error('Text Zoom: Failed to save zoom', error);
       showError('Failed to save zoom');
+      return false;
     }
+
+    return true;
   };
 
-  zoomSlider.addEventListener('input', (e) => {
+  const applyAndPersist = async (level, method) => {
+    const applyResult = await applyZoomOnly(level, method);
+    if (!applyResult.success) return;
+    await persistZoom(applyResult.level, applyResult.method);
+  };
+
+  zoomSlider.addEventListener('input', async (e) => {
     const level = parseFloat(e.target.value);
-    zoomLevel.textContent = level.toFixed(2) + 'x';
+    await applyZoomOnly(level, currentMethod);
   });
 
-  zoomSlider.addEventListener('change', (e) => {
+  zoomSlider.addEventListener('change', async (e) => {
     const level = parseFloat(e.target.value);
-    updateZoom(level, currentMethod);
+    const applyResult = await applyZoomOnly(level, currentMethod);
+    if (!applyResult.success) return;
+    await persistZoom(applyResult.level, applyResult.method);
   });
 
   zoomIn.addEventListener('click', () => {
     const bounds = getMethodBounds(currentMethod, popupButtonStep);
     const newLevel = normalizeLevel(Math.min(bounds.max, currentLevel + bounds.buttonStep));
-    updateZoom(newLevel, currentMethod);
+    applyAndPersist(newLevel, currentMethod);
   });
 
   zoomOut.addEventListener('click', () => {
     const bounds = getMethodBounds(currentMethod, popupButtonStep);
     const newLevel = normalizeLevel(Math.max(bounds.min, currentLevel - bounds.buttonStep));
-    updateZoom(newLevel, currentMethod);
+    applyAndPersist(newLevel, currentMethod);
   });
 
   resetBtn.addEventListener('click', () => {
     const resetLevel = isNativeZoomMethod(currentMethod)
       ? clampForMethod(defaultLevel, 'browser-zoom', popupButtonStep)
       : clampForMethod(defaultLevel, currentMethod, popupButtonStep);
-    updateZoom(resetLevel, currentMethod);
+    applyAndPersist(resetLevel, currentMethod);
   });
 
   zoomMethod.addEventListener('change', (e) => {
     const method = normalizeMethod(e.target.value);
     const nextLevel = clampForMethod(currentLevel, method, popupButtonStep);
-    updateZoom(nextLevel, method);
+    applyAndPersist(nextLevel, method);
   });
 
   settingsBtn.addEventListener('click', () => {
