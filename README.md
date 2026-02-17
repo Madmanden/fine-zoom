@@ -1,111 +1,127 @@
 # Text Zoom Extension
 
-A Chrome extension for controlling text zoom level with precision. No more jumpy fonts or broken layouts!
+Text Zoom is a Manifest V3 browser extension for precise, per-site zoom control.
+
+It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
 
 ## Features
 
-- **Three Zoom Methods:**
-  - **Browser Zoom** (default) - Native Chrome page zoom
-  - **Font-Size Scaling** - Base text-size scaling for stable text-only zoom behavior
-  - **CSS Zoom** - Full page scaling with minimal logic
-
-- **Per-Domain Persistence:** Your zoom preferences are saved per website
-- **No Jumpy Loading:** CSS injection happens at document start for immediate application
-- **Overflow Prevention:** Content stays within viewport, no horizontal scrolling
-- **Keyboard Shortcuts:**
-  - `Ctrl+Shift+Up` / `Cmd+Shift+Up` - Zoom in
-  - `Ctrl+Shift+Down` / `Cmd+Shift+Down` - Zoom out
-  - `Ctrl+Shift+0` / `Cmd+Shift+0` - Reset zoom
+- Three zoom methods:
+  - `browser-zoom` (default): native tab zoom via Chrome APIs
+  - `font-size`: text-focused scaling using computed font-size overrides
+  - `css-zoom`: page scaling using CSS `zoom`
+- Per-site persistence of level and method
+- Live slider preview while dragging
+- Configurable popup button increment (`+` / `-`)
+- Keyboard shortcuts:
+  - `Ctrl+Shift+Up` / `Cmd+Shift+Up` zoom in
+  - `Ctrl+Shift+Down` / `Cmd+Shift+Down` zoom out
+  - `Ctrl+Shift+0` / `Cmd+Shift+0` reset zoom
+- Excluded-sites list to disable zoom on selected domains
 
 ## Installation
 
-### From Source (Developer Mode)
+### Load unpacked in Chrome
 
-1. Download or clone this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" (toggle in top-right)
-4. Click "Load unpacked"
-5. Select the extension folder
-6. The "Z" icon should appear in your toolbar
+1. Clone this repository.
+2. Open `chrome://extensions/`.
+3. Enable Developer mode.
+4. Click Load unpacked.
+5. Select this project directory.
 
 ## Usage
 
-### Quick Zoom (Click Icon)
+### Popup controls
 
-1. Click the "Z" icon in your toolbar
-2. Use the slider (fixed 0.05 increments) and +/- buttons (uses your configured button step)
-3. Select your preferred zoom method from the dropdown
-4. Click "Reset" to return to 1.0x
+1. Click the extension icon.
+2. Choose a method.
+3. Adjust zoom:
+   - Slider step is fixed at `0.05`.
+   - `+` / `-` use your configured popup button step.
+4. Click Reset to return to default level.
 
-### Advanced Settings
+### Settings page
 
-Click the ⚙ gear icon in the popup to access:
-- Default zoom method selection
-- Default zoom level adjustment
-- Per-site zoom management
-- Excluded sites list
-- Keyboard shortcut customization
+Open settings from the popup.
+
+Available settings include:
+- default method
+- default zoom level
+- popup button step
+- per-site overrides
+- excluded sites
+- debug highlight mode
 
 ## How It Works
 
-### Immediate Application
-The extension injects CSS at `document_start`, before the page renders, eliminating the "jumpy font" problem common in similar extensions.
+- Background worker applies and persists zoom state.
+- Content scripts handle CSS-based methods at `document_start`.
+- Native mode uses `chrome.tabs.setZoom()` and `chrome.tabs.getZoom()`.
+- Site-specific settings are stored in `chrome.storage.local`.
 
-### Overflow Prevention
-- CSS Zoom: Browser handles scaling automatically
-- Font-Size: Root/base `font-size` scaling + `word-wrap` safeguards for readability
+## Storage Keys
 
-### Storage
-All preferences are stored using Chrome's `storage.local` API:
-- `defaultMethod`: Default zoom method
-- `defaultLevel`: Default zoom level
-- `perSiteZoom`: Domain-specific zoom settings
-- `excludedSites`: Sites where zoom is disabled
+- `defaultMethod`
+- `defaultLevel`
+- `defaultPopupButtonStep`
+- `perSiteZoom`
+- `excludedSites`
+- `debugHighlightScaledText`
 
-## File Structure
+Migration flags:
+- `didMigrateToFontSizeDefault`
+- `didMigrateToBrowserZoomDefault`
 
-```
-text-zoom-extension/
-├── manifest.json          # Extension configuration
-├── background.js          # Service worker for keyboard shortcuts
+## Permissions
+
+- `storage`: save local preferences
+- `activeTab`: interact with active tab from popup/shortcuts
+- `tabs`: native zoom read/write
+- `scripting`: inject content scripts when needed
+- `<all_urls>` host permission: run content script on web pages
+
+## Compatibility Notes
+
+- Designed for Chromium browsers (Manifest V3).
+- `css-zoom` uses non-standard CSS `zoom`; behavior may vary across browsers.
+
+## Project Structure
+
+```text
+.
+├── background.js
+├── manifest.json
 ├── content/
-│   ├── content.js        # Content script for zoom application
-│   └── zoom-methods.js   # Zoom implementations
+│   ├── content.js
+│   └── zoom-methods.js
 ├── popup/
-│   ├── popup.html        # Quick zoom UI
-│   ├── popup.css         # Popup styles
-│   └── popup.js          # Popup logic
+│   ├── popup.html
+│   ├── popup.css
+│   └── popup.js
 ├── settings/
-│   ├── settings.html     # Advanced settings page
-│   ├── settings.css      # Settings styles
-│   └── settings.js       # Settings logic
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+│   ├── settings.html
+│   ├── settings.css
+│   └── settings.js
+├── shared/
+│   ├── constants.js
+│   └── utils.js
+└── test-logic.js
+```
+
+## Development
+
+Run basic logic tests:
+
+```bash
+node test-logic.js
 ```
 
 ## Privacy
 
-This extension:
-- ✅ Stores all data locally on your device
-- ✅ Does not collect or transmit any data
-- ✅ Does not require internet permissions
-- ✅ Works entirely offline
-
-### Permissions Used
-
-- **`storage`**: To save your zoom preferences locally
-- **`activeTab`**: To apply zoom changes when you click the popup or use keyboard shortcuts
-- **`tabs`**: To read and set native browser zoom levels
-- **`<all_urls>`**: To inject content scripts on web pages for immediate zoom application
-
-The content script runs automatically on all web pages you visit (using `document_start` timing) to prevent the "jumpy font" effect. It only reads from storage and applies CSS - no data is collected or transmitted.
+- All data stays in `chrome.storage.local` on your machine.
+- The extension does not send telemetry or analytics.
+- No external network access is required for core behavior.
 
 ## License
 
-MIT License
-
-## Support
-
-For issues or feature requests, please use the GitHub issue tracker.
+MIT
