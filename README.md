@@ -70,6 +70,7 @@ Available settings include:
 - Native mode uses `chrome.tabs.setZoom()` and `chrome.tabs.getZoom()`.
 - Site-specific settings are stored in `chrome.storage.local`.
 - In browser-zoom mode, manual native browser zoom changes are synchronized into extension state.
+- Native zoom is only re-applied when the target value differs, reducing repeated zoom popups on navigation.
 - Ctrl+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
 - Ctrl key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
 

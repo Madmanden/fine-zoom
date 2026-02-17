@@ -5,6 +5,7 @@ const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAUL
 
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
 const tabDeltaQueues = new Map();
+const ZOOM_COMPARE_EPSILON = 0.001;
 
 const clampContentZoom = (level) => {
   const normalized = Number.parseFloat(level);
@@ -16,6 +17,10 @@ const clampNativeZoom = (level) => {
   const normalized = Number.parseFloat(level);
   if (!Number.isFinite(normalized)) return DEFAULT_LEVEL;
   return Math.max(BROWSER_ZOOM_MIN, Math.min(BROWSER_ZOOM_MAX, normalized));
+};
+
+const areZoomLevelsEqual = (a, b) => {
+  return Math.abs(Number(a) - Number(b)) < ZOOM_COMPARE_EPSILON;
 };
 
 const toDomain = (tabUrl) => {
@@ -43,6 +48,10 @@ const clearContentZoom = async (tabId) => {
 
 const applyNativeZoom = async (tabId, level) => {
   const clamped = clampNativeZoom(level);
+  const current = clampNativeZoom(await chrome.tabs.getZoom(tabId));
+  if (areZoomLevelsEqual(current, clamped)) {
+    return current;
+  }
   await chrome.tabs.setZoom(tabId, clamped);
   const applied = await chrome.tabs.getZoom(tabId);
   return clampNativeZoom(applied);
@@ -50,7 +59,10 @@ const applyNativeZoom = async (tabId, level) => {
 
 const applyContentZoom = async (tabId, level, method) => {
   const clamped = clampContentZoom(level);
-  await chrome.tabs.setZoom(tabId, 1.0);
+  const currentNativeZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
+  if (!areZoomLevelsEqual(currentNativeZoom, 1.0)) {
+    await chrome.tabs.setZoom(tabId, 1.0);
+  }
   await ensureContentScriptAndSend(tabId, {
     action: 'setZoom',
     level: clamped,
@@ -118,7 +130,10 @@ const applyStoredZoomForTab = async (tabId, tabUrl) => {
 
   const excludedSites = data.excludedSites ?? [];
   if (isDomainExcluded(domain, excludedSites)) {
-    await chrome.tabs.setZoom(tabId, 1.0);
+    const currentNativeZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
+    if (!areZoomLevelsEqual(currentNativeZoom, 1.0)) {
+      await chrome.tabs.setZoom(tabId, 1.0);
+    }
     await clearContentZoom(tabId);
     return;
   }
@@ -152,7 +167,7 @@ const syncNativeZoomToStorageIfNeeded = async (tabId, tabUrl, nativeLevel) => {
   const storedLevel = perSiteZoom[domain]?.level;
   const storedMethod = normalizeMethod(perSiteZoom[domain]?.method ?? effectiveMethod);
 
-  if (storedMethod === 'browser-zoom' && Number(storedLevel) === Number(clampedLevel)) {
+  if (storedMethod === 'browser-zoom' && areZoomLevelsEqual(storedLevel, clampedLevel)) {
     return;
   }
 
