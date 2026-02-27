@@ -82,9 +82,10 @@
 
   const refreshHijackEligibility = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getHijackEligibility' });
-      isCtrlWheelEnabled = Boolean(response?.success && response?.ctrlWheelEnabled);
-      isCtrlKeyEnabled = Boolean(response?.success && response?.ctrlKeyEnabled);
+      const data = await chrome.storage.local.get(['enableCtrlWheelHijack', 'enableCtrlKeyHijack']);
+      const enabledForPage = !isCurrentDomainExcluded;
+      isCtrlWheelEnabled = enabledForPage && (data.enableCtrlWheelHijack ?? true);
+      isCtrlKeyEnabled = enabledForPage && (data.enableCtrlKeyHijack ?? true);
     } catch {
       isCtrlWheelEnabled = false;
       isCtrlKeyEnabled = false;
