@@ -390,30 +390,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'getHijackEligibility') {
-    const tabUrl = sender.tab?.url;
-    const domain = toDomain(tabUrl);
-
-    if (!domain) {
-      sendResponse({ success: true, enabledForPage: false, ctrlWheelEnabled: false, ctrlKeyEnabled: false });
-      return;
-    }
-
-    chrome.storage.local.get(['excludedSites', 'enableCtrlWheelHijack', 'enableCtrlKeyHijack'])
-      .then((data) => {
-        const excludedSites = data.excludedSites ?? [];
-        const enabledForPage = !isDomainExcluded(domain, excludedSites);
-        sendResponse({
-          success: true,
-          enabledForPage,
-          ctrlWheelEnabled: enabledForPage && (data.enableCtrlWheelHijack ?? true),
-          ctrlKeyEnabled: enabledForPage && (data.enableCtrlKeyHijack ?? true)
-        });
-      })
-      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
-    return true;
-  }
-
   if (request.action === 'adjustZoomByDelta') {
     const tabId = sender.tab?.id;
     const domain = toDomain(sender.tab?.url);
