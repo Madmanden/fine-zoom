@@ -39,29 +39,6 @@
       "all_frames": true
     }
   ],
-  "commands": {
-    "zoom-in": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Up",
-        "mac": "Command+Shift+Up"
-      },
-      "description": "Zoom text in"
-    },
-    "zoom-out": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Down",
-        "mac": "Command+Shift+Down"
-      },
-      "description": "Zoom text out"
-    },
-    "zoom-reset": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+0",
-        "mac": "Command+Shift+0"
-      },
-      "description": "Reset text zoom"
-    }
-  },
   "options_page": "settings/settings.html",
   "icons": {
     "16": "icons/icon-16.png",

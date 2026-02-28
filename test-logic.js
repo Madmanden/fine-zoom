@@ -7,7 +7,12 @@ const {
   DEFAULT_ZOOM_STEP,
   DEFAULT_FINE_ZOOM_STEP
 } = require('./shared/constants.js');
-const { isDomainExcluded, normalizeMethod, accumulateCtrlWheelSteps } = require('./shared/utils.js');
+const {
+  isDomainExcluded,
+  normalizeMethod,
+  accumulateCtrlWheelSteps,
+  estimateNativeZoomStepCount
+} = require('./shared/utils.js');
 
 function testDomainExclusion() {
   console.log('Testing domain exclusion...');
@@ -117,6 +122,32 @@ function testCtrlWheelAccumulation() {
   console.log('✅ Ctrl+Wheel accumulation tests passed');
 }
 
+function testNativeZoomStepEstimate() {
+  console.log('Testing native zoom delta step estimation...');
+
+  const cases = [
+    { delta: 0.01, expected: 1 },
+    { delta: 0.10, expected: 1 },
+    { delta: 0.19, expected: 2 },
+    { delta: 0.21, expected: 2 },
+    { delta: 0.49, expected: 5 },
+    { delta: 3.0, expected: 20 }
+  ];
+
+  cases.forEach(({ delta, expected }) => {
+    const result = estimateNativeZoomStepCount(delta, 0.1, 20);
+    if (result !== expected) {
+      throw new Error(`Expected ${expected} steps for native delta ${delta}, got ${result}`);
+    }
+  });
+
+  if (estimateNativeZoomStepCount(NaN, 0.1, 20) !== 1) {
+    throw new Error('Invalid native delta should default to one step');
+  }
+
+  console.log('✅ Native zoom delta estimation tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -138,6 +169,7 @@ try {
   testDomainExclusion();
   testMethodNormalization();
   testCtrlWheelAccumulation();
+  testNativeZoomStepEstimate();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {

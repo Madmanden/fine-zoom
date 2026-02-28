@@ -52,10 +52,21 @@
     return { accumulator: nextAccumulator, steps };
   };
 
+  const estimateNativeZoomStepCount = (nativeDelta, baseStep = 0.1, maxSteps = 20) => {
+    const delta = Math.abs(Number.parseFloat(nativeDelta));
+    const normalizedBase = Number.isFinite(baseStep) && baseStep > 0 ? baseStep : 0.1;
+    const normalizedMax = Number.isFinite(maxSteps) && maxSteps > 0 ? Math.floor(maxSteps) : 20;
+
+    if (!Number.isFinite(delta) || delta <= 0) return 1;
+    const stepCount = Math.max(1, Math.round(delta / normalizedBase));
+    return Math.min(normalizedMax, stepCount);
+  };
+
   const utils = {
     isDomainExcluded,
     normalizeMethod,
-    accumulateCtrlWheelSteps
+    accumulateCtrlWheelSteps,
+    estimateNativeZoomStepCount
   };
 
   root.TextZoomUtils = utils;

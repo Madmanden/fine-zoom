@@ -7,8 +7,12 @@ const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAUL
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
 const tabDeltaQueues = new Map();
 const expectedNativeZoomByTab = new Map();
+const recentWheelHijackByTab = new Map();
 const ZOOM_COMPARE_EPSILON = 0.001;
 const EXPECTED_NATIVE_ZOOM_TTL_MS = 1500;
+const RECENT_WHEEL_HIJACK_WINDOW_MS = 120;
+const MAX_DELTA_STEPS_PER_REQUEST = 20;
+const NATIVE_ZOOM_BASE_STEP = 0.10;
 
 const clampContentZoom = (level) => {
   const normalized = Number.parseFloat(level);
@@ -30,6 +34,28 @@ const clampStep = (value, fallback = DEFAULT_ZOOM_STEP) => {
 
 const areZoomLevelsEqual = (a, b) => {
   return Math.abs(Number(a) - Number(b)) < ZOOM_COMPARE_EPSILON;
+};
+
+const clampDeltaSteps = (steps) => {
+  const normalized = Number.parseInt(steps, 10);
+  if (!Number.isFinite(normalized) || normalized === 0) return null;
+  return Math.max(-MAX_DELTA_STEPS_PER_REQUEST, Math.min(MAX_DELTA_STEPS_PER_REQUEST, normalized));
+};
+
+const markRecentWheelHijack = (tabId) => {
+  recentWheelHijackByTab.set(tabId, Date.now());
+};
+
+const hasRecentWheelHijack = (tabId) => {
+  const timestamp = recentWheelHijackByTab.get(tabId);
+  if (!timestamp) return false;
+
+  if (Date.now() - timestamp > RECENT_WHEEL_HIJACK_WINDOW_MS) {
+    recentWheelHijackByTab.delete(tabId);
+    return false;
+  }
+
+  return true;
 };
 
 const rememberExpectedNativeZoom = (tabId, level) => {
@@ -275,6 +301,10 @@ const syncNativeZoomToStorageIfNeeded = async (tabId, tabUrl, nativeLevel) => {
 };
 
 const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
+  if (hasRecentWheelHijack(zoomChangeInfo.tabId)) {
+    return false;
+  }
+
   const domain = toDomain(tabUrl);
   if (!domain) return false;
 
@@ -302,18 +332,24 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
 
   const oldLevel = clampNativeZoom(zoomChangeInfo.oldZoomFactor);
   const newLevel = clampNativeZoom(zoomChangeInfo.newZoomFactor);
-  const direction = Math.sign(newLevel - oldLevel);
+  const rawNativeDelta = newLevel - oldLevel;
+  const direction = Math.sign(rawNativeDelta);
   if (direction === 0) return false;
+  const stepCount = TextZoomUtils.estimateNativeZoomStepCount(
+    Math.abs(rawNativeDelta),
+    NATIVE_ZOOM_BASE_STEP,
+    MAX_DELTA_STEPS_PER_REQUEST
+  );
 
   const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
   let appliedLevel;
   if (isNativeZoomMethod(method)) {
-    const remappedLevel = clampNativeZoom(oldLevel + direction * configuredStep);
+    const remappedLevel = clampNativeZoom(oldLevel + direction * configuredStep * stepCount);
     if (areZoomLevelsEqual(remappedLevel, newLevel)) return false;
     appliedLevel = await applyNativeZoom(zoomChangeInfo.tabId, remappedLevel);
   } else {
     const currentLevel = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
-    const remappedLevel = clampContentZoom(currentLevel + direction * configuredStep);
+    const remappedLevel = clampContentZoom(currentLevel + direction * configuredStep * stepCount);
     appliedLevel = await applyMethodZoom(zoomChangeInfo.tabId, remappedLevel, method);
   }
 
@@ -478,10 +514,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
 
-    const requestedDelta = Number.parseFloat(request.delta);
-    if (!Number.isFinite(requestedDelta) || requestedDelta === 0) {
-      sendResponse({ success: false, error: 'Invalid delta' });
-      return;
+    let requestedSteps = clampDeltaSteps(request.deltaSteps);
+    if (requestedSteps === null) {
+      const requestedDelta = Number.parseFloat(request.delta);
+      if (!Number.isFinite(requestedDelta) || requestedDelta === 0) {
+        sendResponse({ success: false, error: 'Invalid delta' });
+        return;
+      }
+      requestedSteps = Math.sign(requestedDelta);
+    }
+
+    if (request.source === 'wheel-hijack') {
+      markRecentWheelHijack(tabId);
     }
 
     enqueueTabDeltaTask(tabId, async () => {
@@ -511,7 +555,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
 
       const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
-      const delta = Math.sign(requestedDelta) * configuredStep;
+      const delta = configuredStep * requestedSteps;
       let newZoom;
       if (isNativeZoomMethod(method)) {
         newZoom = clampNativeZoom(currentZoom + delta);
@@ -569,6 +613,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 });
 
+chrome.tabs.onRemoved.addListener((tabId) => {
+  tabDeltaQueues.delete(tabId);
+  expectedNativeZoomByTab.delete(tabId);
+  recentWheelHijackByTab.delete(tabId);
+});
+
 chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
   try {
     const tab = await chrome.tabs.get(zoomChangeInfo.tabId);
@@ -584,17 +634,4 @@ chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
   } catch (error) {
     console.error('Fine Zoom: Failed to sync native zoom change', error);
   }
-});
-
-chrome.commands.onCommand.addListener(async (command) => {
-  if (!['zoom-in', 'zoom-out', 'zoom-reset'].includes(command)) return;
-
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-  const domain = toDomain(tab?.url);
-  if (!domain) return;
-
-  enqueueTabDeltaTask(tab.id, () => runZoomCommand(tab.id, domain, command)).catch((error) => {
-    console.error('Fine Zoom: Failed to apply zoom from command', error);
-  });
 });

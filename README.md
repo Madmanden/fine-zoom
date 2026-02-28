@@ -18,15 +18,11 @@ It supports native browser zoom and two CSS-based alternatives, with immediate i
 - Live slider preview while dragging
 - Configurable popup button increment (`+` / `-`)
 - Fine popup controls (`0.01`) via a dedicated small +/- row
-- Ctrl+Wheel hijack on supported pages (fixed `0.05` increment steps)
-- Ctrl key hijack on supported pages:
-  - `Ctrl+` zoom in (`0.05`)
-  - `Ctrl-` zoom out (`0.05`)
-  - `Ctrl+0` reset to default level
-- Keyboard shortcuts:
-  - `Ctrl+Shift+Up` / `Cmd+Shift+Up` zoom in
-  - `Ctrl+Shift+Down` / `Cmd+Shift+Down` zoom out
-  - `Ctrl+Shift+0` / `Cmd+Shift+0` reset zoom
+- Ctrl/Cmd+Wheel hijack on supported pages (uses configured main step)
+- Ctrl/Cmd key hijack on supported pages:
+  - `Ctrl/Cmd +` zoom in (configured main step)
+  - `Ctrl/Cmd -` zoom out (configured main step)
+  - `Ctrl/Cmd 0` reset to default level
 - Excluded-sites list to disable zoom on selected domains
 
 ## Installation
@@ -49,8 +45,8 @@ It supports native browser zoom and two CSS-based alternatives, with immediate i
    - Slider step is fixed at `0.05`.
    - Main `+` / `-` use your configured popup button step (default `0.05`).
    - Fine `+` / `-` use fixed `0.01`.
-   - `Ctrl+MouseWheel` (and trackpad pinch events emitted as Ctrl+Wheel) use extension zoom in fixed `0.05` steps on supported pages.
-   - `Ctrl+`, `Ctrl-`, and `Ctrl+0` are hijacked on supported pages.
+   - `Ctrl/Cmd+MouseWheel` (and trackpad pinch events emitted as modifier+wheel) use extension zoom with your configured main step on supported pages.
+   - `Ctrl/Cmd +`, `Ctrl/Cmd -`, and `Ctrl/Cmd 0` are hijacked on supported pages.
 4. Click Reset to return to default level.
 
 ### Settings page
@@ -64,8 +60,8 @@ Available settings include:
 - per-site overrides
 - excluded sites
 - debug highlight mode
-- toggle for Ctrl+Wheel hijack
-- toggle for Ctrl key hijack
+- toggle for Ctrl/Cmd+Wheel hijack
+- toggle for Ctrl/Cmd key hijack
 
 ## How It Works
 
@@ -75,8 +71,8 @@ Available settings include:
 - Site-specific settings are stored in `chrome.storage.local`.
 - In browser-zoom mode, manual native browser zoom changes are synchronized into extension state.
 - Native zoom is only re-applied when the target value differs, reducing repeated zoom popups on navigation.
-- Ctrl+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
-- Ctrl key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
+- Ctrl/Cmd+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
+- Ctrl/Cmd key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
 
 ## Storage Keys
 
@@ -105,8 +101,9 @@ Migration flags:
 
 - Designed for Chromium browsers (Manifest V3).
 - `css-zoom` uses non-standard CSS `zoom`; behavior may vary across browsers.
-- Ctrl+Wheel hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
-- Ctrl key hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
+- Ctrl/Cmd+Wheel hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
+- Ctrl/Cmd key hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
+- Trackpad pinch events are browser-dependent; Fine Zoom applies best-effort remapping and behavior may vary by browser/page.
 
 ## Project Structure
 
@@ -152,7 +149,7 @@ The extension requires page access only to apply zoom behavior on visited pages.
 - Listing requirement: provide at least one screenshot
 - Suggested screenshot content: popup controls visible next to a page showing adjusted text size
 - Suggested store description:
-  - `Precise browser zoom. Set exactly the zoom level you want instead of snapping to your browser's coarse preset steps. Fine-grained control via popup, keyboard shortcuts, and scroll wheel.`
+  - `Precise browser zoom. Set exactly the zoom level you want instead of snapping to your browser's coarse preset steps. Fine-grained control via popup and modifier-key hijack with scroll wheel.`
 
 ## License
 

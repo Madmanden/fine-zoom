@@ -22,7 +22,7 @@
   let ctrlWheelAccumulator = 0;
   let pendingWheelSteps = 0;
   let wheelFlushInProgress = false;
-  const CTRL_WHEEL_DELTA_THRESHOLD = 100;
+  const CTRL_WHEEL_DELTA_THRESHOLD = 70;
   const hasZoomModifier = (event) => {
     return (event.ctrlKey || event.metaKey) && !event.altKey;
   };
@@ -63,13 +63,14 @@
     wheelFlushInProgress = true;
 
     while (pendingWheelSteps !== 0) {
-      const direction = pendingWheelSteps > 0 ? 1 : -1;
-      pendingWheelSteps -= direction;
+      const deltaSteps = pendingWheelSteps;
+      pendingWheelSteps = 0;
 
       try {
         const response = await chrome.runtime.sendMessage({
           action: 'adjustZoomByDelta',
-          delta: direction
+          deltaSteps,
+          source: 'wheel-hijack'
         });
         if (response?.success && typeof response.level === 'number') {
           currentLevel = response.level;
