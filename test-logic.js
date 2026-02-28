@@ -13,7 +13,7 @@ const {
   accumulateCtrlWheelSteps,
   estimateNativeZoomStepCount,
   normalizeDeltaSteps,
-  shouldApplyWheelFallback
+  shouldApplyFallbackForIntent
 } = require('./shared/utils.js');
 
 function testDomainExclusion() {
@@ -173,20 +173,32 @@ function testDeltaStepNormalization() {
   console.log('✅ Delta step normalization tests passed');
 }
 
-function testWheelFallbackToggle() {
-  console.log('Testing wheel fallback toggle behavior...');
+function testFallbackIntentGating() {
+  console.log('Testing fallback intent gating...');
 
-  if (shouldApplyWheelFallback(true) !== true) {
-    throw new Error('Wheel fallback should be enabled when toggle is true');
+  if (shouldApplyFallbackForIntent('wheel', true, false) !== true) {
+    throw new Error('Wheel intent should use wheel toggle');
   }
-  if (shouldApplyWheelFallback(false) !== false) {
-    throw new Error('Wheel fallback should be disabled when toggle is false');
+  if (shouldApplyFallbackForIntent('wheel', false, true) !== false) {
+    throw new Error('Wheel intent should be disabled when wheel toggle is off');
   }
-  if (shouldApplyWheelFallback(undefined) !== true) {
-    throw new Error('Wheel fallback should default to enabled when toggle is unset');
+  if (shouldApplyFallbackForIntent('key', false, true) !== true) {
+    throw new Error('Key intent should use key toggle');
+  }
+  if (shouldApplyFallbackForIntent('key', true, false) !== false) {
+    throw new Error('Key intent should be disabled when key toggle is off');
+  }
+  if (shouldApplyFallbackForIntent('unknown', false, true) !== true) {
+    throw new Error('Unknown intent should pass when any toggle is enabled');
+  }
+  if (shouldApplyFallbackForIntent('unknown', false, false) !== false) {
+    throw new Error('Unknown intent should fail when all toggles are disabled');
+  }
+  if (shouldApplyFallbackForIntent('wheel', undefined, false) !== true) {
+    throw new Error('Wheel intent should default to enabled when wheel toggle is unset');
   }
 
-  console.log('✅ Wheel fallback toggle tests passed');
+  console.log('✅ Fallback intent gating tests passed');
 }
 
 function testConstants() {
@@ -212,7 +224,7 @@ try {
   testCtrlWheelAccumulation();
   testNativeZoomStepEstimate();
   testDeltaStepNormalization();
-  testWheelFallbackToggle();
+  testFallbackIntentGating();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {

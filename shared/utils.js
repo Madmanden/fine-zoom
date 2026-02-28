@@ -69,8 +69,13 @@
     return Math.max(-normalizedMax, Math.min(normalizedMax, normalized));
   };
 
-  const shouldApplyWheelFallback = (enableCtrlWheelHijack) => {
-    return enableCtrlWheelHijack ?? true;
+  const shouldApplyFallbackForIntent = (intentKind, enableCtrlWheelHijack, enableCtrlKeyHijack) => {
+    const wheelEnabled = enableCtrlWheelHijack ?? true;
+    const keyEnabled = enableCtrlKeyHijack ?? true;
+
+    if (intentKind === 'wheel') return wheelEnabled;
+    if (intentKind === 'key') return keyEnabled;
+    return wheelEnabled || keyEnabled;
   };
 
   const utils = {
@@ -79,7 +84,7 @@
     accumulateCtrlWheelSteps,
     estimateNativeZoomStepCount,
     normalizeDeltaSteps,
-    shouldApplyWheelFallback
+    shouldApplyFallbackForIntent
   };
 
   root.TextZoomUtils = utils;

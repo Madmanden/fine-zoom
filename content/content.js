@@ -22,9 +22,15 @@
   let ctrlWheelAccumulator = 0;
   let pendingWheelSteps = 0;
   let wheelFlushInProgress = false;
+  let lastWheelIntentAt = 0;
+  let lastKeyIntentAt = 0;
   const CTRL_WHEEL_DELTA_THRESHOLD = 70;
+  const INPUT_INTENT_THROTTLE_MS = 80;
   const hasZoomModifier = (event) => {
     return (event.ctrlKey || event.metaKey) && !event.altKey;
+  };
+  const sendZoomInputIntent = (kind) => {
+    void chrome.runtime.sendMessage({ action: 'recordZoomInputIntent', kind }).catch(() => {});
   };
   const removeLegacyTransformStyle = () => {
     const legacyStyle = document.getElementById('fine-zoom-transform-style');
@@ -101,6 +107,11 @@
       if (!hasZoomModifier(event) || !event.cancelable) return;
       if (!didInitializeSettings || !isCtrlWheelEnabled) return;
 
+      if (Date.now() - lastWheelIntentAt > INPUT_INTENT_THROTTLE_MS) {
+        lastWheelIntentAt = Date.now();
+        sendZoomInputIntent('wheel');
+      }
+
       event.preventDefault();
 
       const wheelUpdate = TextZoomUtils.accumulateCtrlWheelSteps({
@@ -145,6 +156,11 @@
       }
 
       if (!command) return;
+
+      if (Date.now() - lastKeyIntentAt > INPUT_INTENT_THROTTLE_MS) {
+        lastKeyIntentAt = Date.now();
+        sendZoomInputIntent('key');
+      }
 
       event.preventDefault();
       event.stopImmediatePropagation();

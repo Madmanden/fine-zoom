@@ -81,13 +81,11 @@ Available settings include:
 - `defaultPopupButtonStep`
 - `perSiteZoom`
 - `excludedSites`
-- `debugHighlightScaledText`
 - `enableCtrlWheelHijack`
 - `enableCtrlKeyHijack`
 - `didMigrateMainButtonStepTo005`
 
 Migration flags:
-- `didMigrateToFontSizeDefault`
 - `didMigrateToBrowserZoomDefault`
 
 ## Permissions

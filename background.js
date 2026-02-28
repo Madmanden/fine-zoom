@@ -8,9 +8,11 @@ const isNativeZoomMethod = (method) => method === 'browser-zoom';
 const tabDeltaQueues = new Map();
 const expectedNativeZoomByTab = new Map();
 const recentWheelHijackByTab = new Map();
+const recentZoomInputIntentByTab = new Map();
 const ZOOM_COMPARE_EPSILON = 0.001;
 const EXPECTED_NATIVE_ZOOM_TTL_MS = 1500;
 const RECENT_WHEEL_HIJACK_WINDOW_MS = 120;
+const RECENT_INPUT_INTENT_WINDOW_MS = 500;
 const MAX_DELTA_STEPS_PER_REQUEST = 20;
 const NATIVE_ZOOM_BASE_STEP = 0.10;
 
@@ -50,6 +52,26 @@ const hasRecentWheelHijack = (tabId) => {
   }
 
   return true;
+};
+
+const markRecentZoomInputIntent = (tabId, kind) => {
+  if (kind !== 'wheel' && kind !== 'key') return;
+  recentZoomInputIntentByTab.set(tabId, {
+    kind,
+    timestamp: Date.now()
+  });
+};
+
+const getRecentZoomInputIntent = (tabId) => {
+  const intent = recentZoomInputIntentByTab.get(tabId);
+  if (!intent) return null;
+
+  if (Date.now() - intent.timestamp > RECENT_INPUT_INTENT_WINDOW_MS) {
+    recentZoomInputIntentByTab.delete(tabId);
+    return null;
+  }
+
+  return intent;
 };
 
 const rememberExpectedNativeZoom = (tabId, level) => {
@@ -299,6 +321,9 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
     return false;
   }
 
+  const recentIntent = getRecentZoomInputIntent(zoomChangeInfo.tabId);
+  if (!recentIntent) return false;
+
   const domain = toDomain(tabUrl);
   if (!domain) return false;
 
@@ -308,7 +333,8 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
     'defaultLevel',
     'defaultZoomStep',
     'excludedSites',
-    'enableCtrlWheelHijack'
+    'enableCtrlWheelHijack',
+    'enableCtrlKeyHijack'
   ]);
 
   const excludedSites = data.excludedSites ?? [];
@@ -320,7 +346,10 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
   const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
 
   const ctrlWheelEnabled = data.enableCtrlWheelHijack ?? true;
-  if (!TextZoomUtils.shouldApplyWheelFallback(ctrlWheelEnabled)) return false;
+  const ctrlKeyEnabled = data.enableCtrlKeyHijack ?? true;
+  if (!TextZoomUtils.shouldApplyFallbackForIntent(recentIntent.kind, ctrlWheelEnabled, ctrlKeyEnabled)) {
+    return false;
+  }
 
   const oldLevel = clampNativeZoom(zoomChangeInfo.oldZoomFactor);
   const newLevel = clampNativeZoom(zoomChangeInfo.newZoomFactor);
@@ -454,6 +483,18 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
+
+  if (request.action === 'recordZoomInputIntent') {
+    const tabId = sender.tab?.id;
+    if (typeof tabId !== 'number') {
+      sendResponse({ success: false, error: 'Missing tab context' });
+      return;
+    }
+
+    markRecentZoomInputIntent(tabId, request.kind);
+    sendResponse({ success: true });
+    return;
+  }
 
   if (request.action === 'applyNativeZoom') {
     const tabId = request.tabId ?? sender.tab?.id;
@@ -609,6 +650,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   tabDeltaQueues.delete(tabId);
   expectedNativeZoomByTab.delete(tabId);
   recentWheelHijackByTab.delete(tabId);
+  recentZoomInputIntentByTab.delete(tabId);
 });
 
 chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
