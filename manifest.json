@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Fine Zoom",
   "version": "1.0.0",
-  "description": "Precise browser zoom \u2014 set any zoom level instead of snapping to preset steps. Control via popup, keyboard, and scroll wheel.",
+  "description": "Precise browser zoom — set any zoom level instead of snapping to preset steps. Control via popup, keyboard, and scroll wheel.",
   "homepage_url": "https://github.com/Madmanden/fine-zoom",
   "permissions": [
     "tabs",
