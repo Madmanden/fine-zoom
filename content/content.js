@@ -135,9 +135,9 @@
       const key = event.key;
       const code = event.code;
 
-      if (key === '+' || key === '=' || code === 'NumpadAdd') {
+      if (key === '+' || key === '=' || key === 'Add' || code === 'Equal' || code === 'NumpadAdd') {
         command = 'zoom-in';
-      } else if (key === '-' || key === '_' || code === 'NumpadSubtract') {
+      } else if (key === '-' || key === '_' || key === 'Subtract' || code === 'Minus' || code === 'NumpadSubtract') {
         command = 'zoom-out';
       } else if (key === '0' || code === 'Digit0' || code === 'Numpad0') {
         command = 'zoom-reset';
@@ -146,6 +146,7 @@
       if (!command) return;
 
       event.preventDefault();
+      event.stopImmediatePropagation();
       void chrome.runtime.sendMessage({ action: 'adjustZoomByCommand', command })
         .then((response) => {
           if (response?.success && typeof response.level === 'number') {

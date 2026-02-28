@@ -6,7 +6,9 @@ const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAUL
 
 const isNativeZoomMethod = (method) => method === 'browser-zoom';
 const tabDeltaQueues = new Map();
+const expectedNativeZoomByTab = new Map();
 const ZOOM_COMPARE_EPSILON = 0.001;
+const EXPECTED_NATIVE_ZOOM_TTL_MS = 1500;
 
 const clampContentZoom = (level) => {
   const normalized = Number.parseFloat(level);
@@ -28,6 +30,30 @@ const clampStep = (value, fallback = DEFAULT_ZOOM_STEP) => {
 
 const areZoomLevelsEqual = (a, b) => {
   return Math.abs(Number(a) - Number(b)) < ZOOM_COMPARE_EPSILON;
+};
+
+const rememberExpectedNativeZoom = (tabId, level) => {
+  expectedNativeZoomByTab.set(tabId, {
+    level: clampNativeZoom(level),
+    expiresAt: Date.now() + EXPECTED_NATIVE_ZOOM_TTL_MS
+  });
+};
+
+const consumeExpectedNativeZoom = (tabId, observedLevel) => {
+  const expected = expectedNativeZoomByTab.get(tabId);
+  if (!expected) return false;
+
+  if (Date.now() > expected.expiresAt) {
+    expectedNativeZoomByTab.delete(tabId);
+    return false;
+  }
+
+  if (!areZoomLevelsEqual(expected.level, clampNativeZoom(observedLevel))) {
+    return false;
+  }
+
+  expectedNativeZoomByTab.delete(tabId);
+  return true;
 };
 
 const normalizeStoredLevel = (level) => {
@@ -92,6 +118,7 @@ const applyNativeZoom = async (tabId, level) => {
   if (areZoomLevelsEqual(current, clamped)) {
     return current;
   }
+  rememberExpectedNativeZoom(tabId, clamped);
   await chrome.tabs.setZoom(tabId, clamped);
   const applied = await chrome.tabs.getZoom(tabId);
   return clampNativeZoom(applied);
@@ -101,6 +128,7 @@ const applyContentZoom = async (tabId, level, method) => {
   const clamped = clampContentZoom(level);
   const currentNativeZoom = clampNativeZoom(await chrome.tabs.getZoom(tabId));
   if (!areZoomLevelsEqual(currentNativeZoom, 1.0)) {
+    rememberExpectedNativeZoom(tabId, 1.0);
     await chrome.tabs.setZoom(tabId, 1.0);
   }
   await ensureContentScriptAndSend(tabId, {
@@ -244,6 +272,57 @@ const syncNativeZoomToStorageIfNeeded = async (tabId, tabUrl, nativeLevel) => {
   if (!nextPerSiteZoom) return;
 
   await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
+};
+
+const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
+  const domain = toDomain(tabUrl);
+  if (!domain) return false;
+
+  const data = await chrome.storage.local.get([
+    'perSiteZoom',
+    'defaultMethod',
+    'defaultLevel',
+    'defaultZoomStep',
+    'excludedSites',
+    'enableCtrlWheelHijack',
+    'enableCtrlKeyHijack'
+  ]);
+
+  const excludedSites = data.excludedSites ?? [];
+  if (isDomainExcluded(domain, excludedSites)) return false;
+
+  const perSiteZoom = data.perSiteZoom || {};
+  const defaultMethod = data.defaultMethod ?? DEFAULT_METHOD;
+  const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
+  const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
+
+  const ctrlWheelEnabled = data.enableCtrlWheelHijack ?? true;
+  const ctrlKeyEnabled = data.enableCtrlKeyHijack ?? true;
+  if (!ctrlWheelEnabled && !ctrlKeyEnabled) return false;
+
+  const oldLevel = clampNativeZoom(zoomChangeInfo.oldZoomFactor);
+  const newLevel = clampNativeZoom(zoomChangeInfo.newZoomFactor);
+  const direction = Math.sign(newLevel - oldLevel);
+  if (direction === 0) return false;
+
+  const configuredStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
+  let appliedLevel;
+  if (isNativeZoomMethod(method)) {
+    const remappedLevel = clampNativeZoom(oldLevel + direction * configuredStep);
+    if (areZoomLevelsEqual(remappedLevel, newLevel)) return false;
+    appliedLevel = await applyNativeZoom(zoomChangeInfo.tabId, remappedLevel);
+  } else {
+    const currentLevel = clampContentZoom(perSiteZoom[domain]?.level ?? defaultLevel);
+    const remappedLevel = clampContentZoom(currentLevel + direction * configuredStep);
+    appliedLevel = await applyMethodZoom(zoomChangeInfo.tabId, remappedLevel, method);
+  }
+
+  const nextPerSiteZoom = buildUpdatedPerSiteZoom(perSiteZoom, domain, appliedLevel, method);
+  if (nextPerSiteZoom) {
+    await chrome.storage.local.set({ perSiteZoom: nextPerSiteZoom });
+  }
+
+  return true;
 };
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -493,7 +572,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.tabs.onZoomChange.addListener(async (zoomChangeInfo) => {
   try {
     const tab = await chrome.tabs.get(zoomChangeInfo.tabId);
-    await syncNativeZoomToStorageIfNeeded(zoomChangeInfo.tabId, tab?.url, zoomChangeInfo.newZoomFactor);
+    if (consumeExpectedNativeZoom(zoomChangeInfo.tabId, zoomChangeInfo.newZoomFactor)) {
+      await syncNativeZoomToStorageIfNeeded(zoomChangeInfo.tabId, tab?.url, zoomChangeInfo.newZoomFactor);
+      return;
+    }
+
+    const didApplyFallbackStep = await maybeApplyShortcutHijackFallbackStep(zoomChangeInfo, tab?.url);
+    if (!didApplyFallbackStep) {
+      await syncNativeZoomToStorageIfNeeded(zoomChangeInfo.tabId, tab?.url, zoomChangeInfo.newZoomFactor);
+    }
   } catch (error) {
     console.error('Fine Zoom: Failed to sync native zoom change', error);
   }
