@@ -19,7 +19,8 @@ function testDomainExclusion() {
     { domain: 'another.com', expected: false },
     { domain: 'test.org', expected: true },
     { domain: 'nottest.org', expected: false },
-    { domain: 'org', expected: false }
+    { domain: 'org', expected: false },
+    { domain: 'EXAMPLE.COM', expected: true }
   ];
 
   cases.forEach(c => {
@@ -28,6 +29,16 @@ function testDomainExclusion() {
       throw new Error(`Failed domain exclusion test for ${c.domain}: expected ${c.expected}, got ${result}`);
     }
   });
+
+  const newlineConfig = 'example.com\nfoo.dev';
+  if (!isDomainExcluded('sub.foo.dev', newlineConfig)) {
+    throw new Error('Failed domain exclusion for newline string config');
+  }
+
+  if (isDomainExcluded('example.com', null)) {
+    throw new Error('Domain exclusion should ignore invalid config types');
+  }
+
   console.log('✅ Domain exclusion tests passed');
 }
 

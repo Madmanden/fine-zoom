@@ -23,6 +23,9 @@
   let pendingWheelSteps = 0;
   let wheelFlushInProgress = false;
   const CTRL_WHEEL_DELTA_THRESHOLD = 100;
+  const hasZoomModifier = (event) => {
+    return (event.ctrlKey || event.metaKey) && !event.altKey;
+  };
   const removeLegacyTransformStyle = () => {
     const legacyStyle = document.getElementById('fine-zoom-transform-style');
     if (legacyStyle) legacyStyle.remove();
@@ -94,7 +97,7 @@
 
   const setupCtrlWheelHijack = () => {
     window.addEventListener('wheel', (event) => {
-      if (!event.ctrlKey || !event.cancelable) return;
+      if (!hasZoomModifier(event) || !event.cancelable) return;
       if (!didInitializeSettings || !isCtrlWheelEnabled) return;
 
       event.preventDefault();
@@ -124,7 +127,7 @@
 
   const setupCtrlKeyHijack = () => {
     window.addEventListener('keydown', (event) => {
-      if (!event.ctrlKey || event.altKey) return;
+      if (!hasZoomModifier(event)) return;
       if (!didInitializeSettings || !isCtrlKeyEnabled) return;
       if (isEditableTarget(event.target)) return;
 

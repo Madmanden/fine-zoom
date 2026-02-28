@@ -1,6 +1,19 @@
 (function(root) {
   const isDomainExcluded = (domain, excludedSites) => {
-    return excludedSites.some(site => domain === site || domain.endsWith('.' + site));
+    if (typeof domain !== 'string' || domain.length === 0) return false;
+    const normalizedDomain = domain.toLowerCase();
+
+    const sourceSites = Array.isArray(excludedSites)
+      ? excludedSites
+      : typeof excludedSites === 'string'
+        ? excludedSites.split(/\r?\n|,/)
+        : [];
+
+    return sourceSites.some((site) => {
+      const normalizedSite = String(site || '').trim().toLowerCase();
+      if (!normalizedSite) return false;
+      return normalizedDomain === normalizedSite || normalizedDomain.endsWith('.' + normalizedSite);
+    });
   };
 
   const normalizeMethod = (method, defaultMethod) => {
