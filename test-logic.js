@@ -11,7 +11,9 @@ const {
   isDomainExcluded,
   normalizeMethod,
   accumulateCtrlWheelSteps,
-  estimateNativeZoomStepCount
+  estimateNativeZoomStepCount,
+  normalizeDeltaSteps,
+  shouldApplyWheelFallback
 } = require('./shared/utils.js');
 
 function testDomainExclusion() {
@@ -148,6 +150,45 @@ function testNativeZoomStepEstimate() {
   console.log('✅ Native zoom delta estimation tests passed');
 }
 
+function testDeltaStepNormalization() {
+  console.log('Testing delta step normalization...');
+
+  const cases = [
+    { value: 3, expected: 3 },
+    { value: '2', expected: 2 },
+    { value: '-4', expected: -4 },
+    { value: 999, expected: 20 },
+    { value: -999, expected: -20 },
+    { value: 0, expected: null },
+    { value: 'abc', expected: null }
+  ];
+
+  cases.forEach(({ value, expected }) => {
+    const result = normalizeDeltaSteps(value, 20);
+    if (result !== expected) {
+      throw new Error(`Expected ${expected} for normalizeDeltaSteps(${String(value)}), got ${result}`);
+    }
+  });
+
+  console.log('✅ Delta step normalization tests passed');
+}
+
+function testWheelFallbackToggle() {
+  console.log('Testing wheel fallback toggle behavior...');
+
+  if (shouldApplyWheelFallback(true) !== true) {
+    throw new Error('Wheel fallback should be enabled when toggle is true');
+  }
+  if (shouldApplyWheelFallback(false) !== false) {
+    throw new Error('Wheel fallback should be disabled when toggle is false');
+  }
+  if (shouldApplyWheelFallback(undefined) !== true) {
+    throw new Error('Wheel fallback should default to enabled when toggle is unset');
+  }
+
+  console.log('✅ Wheel fallback toggle tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -170,6 +211,8 @@ try {
   testMethodNormalization();
   testCtrlWheelAccumulation();
   testNativeZoomStepEstimate();
+  testDeltaStepNormalization();
+  testWheelFallbackToggle();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {

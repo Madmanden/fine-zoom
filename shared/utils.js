@@ -62,11 +62,24 @@
     return Math.min(normalizedMax, stepCount);
   };
 
+  const normalizeDeltaSteps = (steps, maxSteps = 20) => {
+    const normalized = Number.parseInt(steps, 10);
+    const normalizedMax = Number.isFinite(maxSteps) && maxSteps > 0 ? Math.floor(maxSteps) : 20;
+    if (!Number.isFinite(normalized) || normalized === 0) return null;
+    return Math.max(-normalizedMax, Math.min(normalizedMax, normalized));
+  };
+
+  const shouldApplyWheelFallback = (enableCtrlWheelHijack) => {
+    return enableCtrlWheelHijack ?? true;
+  };
+
   const utils = {
     isDomainExcluded,
     normalizeMethod,
     accumulateCtrlWheelSteps,
-    estimateNativeZoomStepCount
+    estimateNativeZoomStepCount,
+    normalizeDeltaSteps,
+    shouldApplyWheelFallback
   };
 
   root.TextZoomUtils = utils;

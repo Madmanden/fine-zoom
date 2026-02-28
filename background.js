@@ -36,12 +36,6 @@ const areZoomLevelsEqual = (a, b) => {
   return Math.abs(Number(a) - Number(b)) < ZOOM_COMPARE_EPSILON;
 };
 
-const clampDeltaSteps = (steps) => {
-  const normalized = Number.parseInt(steps, 10);
-  if (!Number.isFinite(normalized) || normalized === 0) return null;
-  return Math.max(-MAX_DELTA_STEPS_PER_REQUEST, Math.min(MAX_DELTA_STEPS_PER_REQUEST, normalized));
-};
-
 const markRecentWheelHijack = (tabId) => {
   recentWheelHijackByTab.set(tabId, Date.now());
 };
@@ -314,8 +308,7 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
     'defaultLevel',
     'defaultZoomStep',
     'excludedSites',
-    'enableCtrlWheelHijack',
-    'enableCtrlKeyHijack'
+    'enableCtrlWheelHijack'
   ]);
 
   const excludedSites = data.excludedSites ?? [];
@@ -327,8 +320,7 @@ const maybeApplyShortcutHijackFallbackStep = async (zoomChangeInfo, tabUrl) => {
   const method = normalizeMethod(perSiteZoom[domain]?.method ?? defaultMethod);
 
   const ctrlWheelEnabled = data.enableCtrlWheelHijack ?? true;
-  const ctrlKeyEnabled = data.enableCtrlKeyHijack ?? true;
-  if (!ctrlWheelEnabled && !ctrlKeyEnabled) return false;
+  if (!TextZoomUtils.shouldApplyWheelFallback(ctrlWheelEnabled)) return false;
 
   const oldLevel = clampNativeZoom(zoomChangeInfo.oldZoomFactor);
   const newLevel = clampNativeZoom(zoomChangeInfo.newZoomFactor);
@@ -514,7 +506,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
 
-    let requestedSteps = clampDeltaSteps(request.deltaSteps);
+    let requestedSteps = TextZoomUtils.normalizeDeltaSteps(request.deltaSteps, MAX_DELTA_STEPS_PER_REQUEST);
     if (requestedSteps === null) {
       const requestedDelta = Number.parseFloat(request.delta);
       if (!Number.isFinite(requestedDelta) || requestedDelta === 0) {
