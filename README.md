@@ -1,10 +1,10 @@
-# Fine Zoom Extension
+# Fine Zoom
 
 [![Tests](https://github.com/Madmanden/fine-zoom/actions/workflows/ci.yml/badge.svg)](https://github.com/Madmanden/fine-zoom/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/tag/Madmanden/fine-zoom?sort=semver)](https://github.com/Madmanden/fine-zoom/tags)
 [![License](https://img.shields.io/github/license/Madmanden/fine-zoom)](#license)
 
-Fine Zoom is a Manifest V3 browser extension for Chromium browsers that gives you exact zoom control instead of coarse built-in presets. It supports native tab zoom, text-only scaling, and CSS-based page scaling, with per-site memory and quick control from the popup, wheel, and keyboard shortcuts.
+Fine Zoom is a Manifest V3 browser extension for Chromium browsers that gives you exact zoom control instead of coarse built-in presets. It supports native tab zoom, text-only scaling, and CSS-based page scaling, with per-site memory and fast control from the popup, wheel, and keyboard shortcuts.
 
 ## Screenshot
 
@@ -32,7 +32,7 @@ The screenshot above shows the settings page, including default zoom controls an
 1. Clone this repository.
 2. Open `chrome://extensions/`.
 3. Enable Developer mode.
-4. Click Load unpacked.
+4. Click `Load unpacked`.
 5. Select this project directory.
 
 ## Usage
@@ -40,18 +40,18 @@ The screenshot above shows the settings page, including default zoom controls an
 ### Popup controls
 
 1. Click the extension icon.
-2. Choose a method.
-3. Adjust zoom:
-   - Slider step is fixed at `0.05`.
-   - Main `+` / `-` use your configured popup button step (default `0.05`).
-   - Fine `+` / `-` use fixed `0.01`.
-   - `Ctrl/Cmd+MouseWheel` (and trackpad pinch events emitted as modifier+wheel) use extension zoom with your configured main step on supported pages.
-   - `Ctrl/Cmd +`, `Ctrl/Cmd -`, and `Ctrl/Cmd 0` are hijacked on supported pages.
-4. Click Reset to return to default level.
+2. Choose a zoom method.
+3. Adjust the level:
+   - The slider uses a fixed `0.05` step.
+   - Main `+` / `-` buttons use your configured popup step, defaulting to `0.05`.
+   - Fine `+` / `-` buttons use a fixed `0.01`.
+   - `Ctrl/Cmd+MouseWheel` and trackpad pinch gestures on supported pages use your configured main step.
+   - `Ctrl/Cmd +`, `Ctrl/Cmd -`, and `Ctrl/Cmd 0` are intercepted on supported pages.
+4. Click `Reset` to return to the default level.
 
 ### Settings page
 
-Open settings from the popup.
+Open settings from the popup to manage defaults and saved overrides.
 
 Available settings include:
 - default method
@@ -62,7 +62,7 @@ Available settings include:
 - toggle for Ctrl/Cmd+Wheel hijack
 - toggle for Ctrl/Cmd key hijack
 
-The per-site list only shows entries that differ from your current defaults.
+The per-site list only shows entries that differ from your current defaults, so it stays focused on real overrides instead of every saved site.
 
 ## How It Works
 
@@ -149,9 +149,9 @@ The extension requires page access only to apply zoom behavior on visited pages.
 
 - Required icons included: `16x16`, `48x48`, `128x128`
 - Listing requirement: provide at least one screenshot
-- Suggested screenshot content: popup controls visible next to a page showing adjusted text size
+- Suggested screenshot content: the popup or settings page shown beside a page with visible zoom changes
 - Suggested store description:
-  - `Precise browser zoom. Set exactly the zoom level you want instead of snapping to your browser's coarse preset steps. Fine-grained control via popup and modifier-key hijack with scroll wheel.`
+  - `Precise browser zoom for Chromium browsers. Set the exact zoom level you want instead of snapping to coarse browser presets. Fine-grained control via popup, wheel, and keyboard shortcuts.`
 
 ## License
 
