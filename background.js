@@ -1,6 +1,6 @@
 importScripts('shared/constants.js', 'shared/utils.js', 'shared/messaging.js');
 
-const { isDomainExcluded } = TextZoomUtils;
+const { isDomainExcluded, isScriptablePageUrl } = TextZoomUtils;
 const { ensureContentScriptAndSend } = TextZoomMessaging;
 const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
@@ -142,15 +142,35 @@ const toDomain = (tabUrl) => {
   }
 };
 
+const isExpectedContentScriptError = (error) => {
+  const message = String(error?.message || error || '');
+  return (
+    message.includes('showing error page') ||
+    message.includes('cannot be scripted due to an ExtensionsSettings policy') ||
+    message.includes('Cannot access contents of url')
+  );
+};
+
 const clearContentZoom = async (tabId) => {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  const tabUrl = tab?.url;
+
+  if (!isScriptablePageUrl(tabUrl)) {
+    return false;
+  }
+
   try {
     await ensureContentScriptAndSend(tabId, {
       action: 'setZoom',
       level: 1.0,
       method: 'font-size'
     });
+    return true;
   } catch (error) {
-    console.error('Fine Zoom: Failed to clear content zoom', error);
+    if (!isExpectedContentScriptError(error)) {
+      console.error('Fine Zoom: Failed to clear content zoom', error);
+    }
+    return false;
   }
 };
 

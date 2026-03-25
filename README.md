@@ -59,7 +59,6 @@ Available settings include:
 - popup button step
 - per-site overrides
 - excluded sites
-- debug highlight mode
 - toggle for Ctrl/Cmd+Wheel hijack
 - toggle for Ctrl/Cmd key hijack
 
@@ -99,6 +98,7 @@ Migration flags:
 
 - Designed for Chromium browsers (Manifest V3).
 - `css-zoom` uses non-standard CSS `zoom`; behavior may vary across browsers.
+- Native zoom cleanup skips restricted and error pages that cannot be scripted.
 - Ctrl/Cmd+Wheel hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
 - Ctrl/Cmd key hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
 - Trackpad pinch events are browser-dependent; Fine Zoom applies best-effort remapping and behavior may vary by browser/page.

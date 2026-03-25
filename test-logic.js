@@ -13,7 +13,8 @@ const {
   accumulateCtrlWheelSteps,
   estimateNativeZoomStepCount,
   normalizeDeltaSteps,
-  shouldApplyFallbackForIntent
+  shouldApplyFallbackForIntent,
+  isScriptablePageUrl
 } = require('./shared/utils.js');
 
 function testDomainExclusion() {
@@ -201,6 +202,30 @@ function testFallbackIntentGating() {
   console.log('✅ Fallback intent gating tests passed');
 }
 
+function testScriptablePageDetection() {
+  console.log('Testing scriptable page detection...');
+
+  const cases = [
+    { url: 'https://example.com', expected: true },
+    { url: 'http://example.com/path', expected: true },
+    { url: 'chrome://extensions', expected: false },
+    { url: 'chrome-extension://abcdefghijklmnop/options.html', expected: false },
+    { url: 'chrome-error://chromewebdata/', expected: false },
+    { url: 'about:blank', expected: false },
+    { url: '', expected: false },
+    { url: null, expected: false }
+  ];
+
+  cases.forEach(({ url, expected }) => {
+    const result = isScriptablePageUrl(url);
+    if (result !== expected) {
+      throw new Error(`Expected ${expected} for isScriptablePageUrl(${String(url)}), got ${result}`);
+    }
+  });
+
+  console.log('✅ Scriptable page detection tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -225,6 +250,7 @@ try {
   testNativeZoomStepEstimate();
   testDeltaStepNormalization();
   testFallbackIntentGating();
+  testScriptablePageDetection();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {

@@ -78,13 +78,25 @@
     return wheelEnabled || keyEnabled;
   };
 
+  const isScriptablePageUrl = (url) => {
+    if (typeof url !== 'string' || url.length === 0) return false;
+
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const utils = {
     isDomainExcluded,
     normalizeMethod,
     accumulateCtrlWheelSteps,
     estimateNativeZoomStepCount,
     normalizeDeltaSteps,
-    shouldApplyFallbackForIntent
+    shouldApplyFallbackForIntent,
+    isScriptablePageUrl
   };
 
   root.TextZoomUtils = utils;
