@@ -8,6 +8,12 @@ Fine Zoom is a Manifest V3 browser extension for native browser zoom with finer 
 
 It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
 
+## Screenshot
+
+![Fine Zoom settings page](screenshots/Screenshot.png)
+
+The screenshot above shows the settings page, including default zoom controls and the per-site overrides list.
+
 ## Features
 
 - Three zoom methods:
@@ -122,6 +128,8 @@ Migration flags:
 │   ├── settings.html
 │   ├── settings.css
 │   └── settings.js
+├── screenshots/
+│   └── Screenshot.png
 ├── shared/
 │   ├── constants.js
 │   └── utils.js
