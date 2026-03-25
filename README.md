@@ -62,6 +62,8 @@ Available settings include:
 - toggle for Ctrl/Cmd+Wheel hijack
 - toggle for Ctrl/Cmd key hijack
 
+The per-site list only shows entries that differ from your current defaults.
+
 ## How It Works
 
 - Background worker applies and persists zoom state.

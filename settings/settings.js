@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const enableCtrlKeyHijack = document.getElementById('enableCtrlKeyHijack');
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
+  let currentPerSiteZoom = {};
+  let currentDefaultLevel = DEFAULT_LEVEL;
+  let currentDefaultMethod = DEFAULT_METHOD;
 
   const clampStep = (value, fallback = DEFAULT_ZOOM_STEP) => {
     if (!Number.isFinite(value)) return fallback;
@@ -23,6 +26,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!Number.isFinite(value)) return DEFAULT_LEVEL;
     const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, value));
     return Math.round(clamped * 100) / 100;
+  };
+
+  const normalizeStoredLevel = (value) => clampLevel(Number.parseFloat(value));
+
+  const isTrueOverride = (config, defaultLevel, defaultMethod) => {
+    if (!config) return false;
+
+    const storedLevel = normalizeStoredLevel(config.level);
+    const storedMethod = TextZoomUtils.normalizeMethod(config.method, defaultMethod);
+    const normalizedDefaultLevel = normalizeStoredLevel(defaultLevel);
+    const normalizedDefaultMethod = TextZoomUtils.normalizeMethod(defaultMethod, DEFAULT_METHOD);
+
+    return storedLevel !== normalizedDefaultLevel || storedMethod !== normalizedDefaultMethod;
   };
 
   const escapeHtml = (str) => {
@@ -81,13 +97,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       'enableCtrlKeyHijack'
     ]);
 
-    const method = data.defaultMethod ?? DEFAULT_METHOD;
+    const method = TextZoomUtils.normalizeMethod(data.defaultMethod, DEFAULT_METHOD);
     const radio = document.querySelector(`input[value="${method}"]`);
     if (radio) radio.checked = true;
+    currentDefaultMethod = method;
 
     const level = clampLevel(Number.parseFloat(data.defaultLevel));
     defaultLevel.value = level;
     defaultLevelDisplay.textContent = level.toFixed(2) + 'x';
+    currentDefaultLevel = level;
 
     const mainStep = clampStep(
       Number.parseFloat(data.defaultZoomStep),
@@ -98,7 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     defaultZoomStep.value = mainStep.toFixed(2);
     defaultFineZoomStep.value = fineStep.toFixed(2);
 
-    renderSiteList(data.perSiteZoom ?? {});
+    currentPerSiteZoom = data.perSiteZoom ?? {};
+    renderSiteList(currentPerSiteZoom);
 
     const excluded = data.excludedSites ?? [];
     excludedSites.value = excluded.join('\n');
@@ -108,10 +127,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const renderSiteList = (perSiteZoom) => {
-    const sites = Object.entries(perSiteZoom);
+    const sites = Object.entries(perSiteZoom).filter(([, config]) =>
+      isTrueOverride(config, currentDefaultLevel, currentDefaultMethod)
+    );
 
     if (sites.length === 0) {
-      siteList.innerHTML = '<p class="empty-state">No custom zoom levels set yet</p>';
+      siteList.innerHTML = '<p class="empty-state">No per-site overrides set yet</p>';
       return;
     }
 
@@ -129,10 +150,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.addEventListener('click', async (e) => {
         const domain = e.target.closest('.site-item').dataset.domain;
         const data = await chrome.storage.local.get('perSiteZoom');
-        const perSiteZoom = { ...(data.perSiteZoom ?? {}) };
-        delete perSiteZoom[domain];
-        await chrome.storage.local.set({ perSiteZoom });
-        renderSiteList(perSiteZoom);
+        currentPerSiteZoom = { ...(data.perSiteZoom ?? {}) };
+        delete currentPerSiteZoom[domain];
+        await chrome.storage.local.set({ perSiteZoom: currentPerSiteZoom });
+        renderSiteList(currentPerSiteZoom);
       });
     });
   };
@@ -149,6 +170,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   defaultMethodRadios.forEach((radio) => {
     radio.addEventListener('change', async () => {
       await chrome.storage.local.set({ defaultMethod: radio.value });
+      currentDefaultMethod = radio.value;
+      renderSiteList(currentPerSiteZoom);
     });
   });
 
@@ -160,7 +183,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const level = clampLevel(parseFloat(e.target.value));
     defaultLevel.value = level;
     defaultLevelDisplay.textContent = level.toFixed(2) + 'x';
+    currentDefaultLevel = level;
     await chrome.storage.local.set({ defaultLevel: level });
+    renderSiteList(currentPerSiteZoom);
   });
 
   defaultZoomStep.addEventListener('change', async (e) => {
@@ -182,8 +207,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   clearAllSites.addEventListener('click', async () => {
     if (confirm('Are you sure you want to clear all site-specific zoom settings?')) {
+      currentPerSiteZoom = {};
       await chrome.storage.local.set({ perSiteZoom: {} });
-      renderSiteList({});
+      renderSiteList(currentPerSiteZoom);
     }
   });
 
