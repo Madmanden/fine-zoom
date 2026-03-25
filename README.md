@@ -4,9 +4,7 @@
 [![Version](https://img.shields.io/github/v/tag/Madmanden/fine-zoom?sort=semver)](https://github.com/Madmanden/fine-zoom/tags)
 [![License](https://img.shields.io/github/license/Madmanden/fine-zoom)](#license)
 
-Fine Zoom is a Manifest V3 browser extension for native browser zoom with finer control than Chrome's built-in zoom — granular steps, per-site memory, and multiple input methods.
-
-It supports native browser zoom and two CSS-based alternatives, with immediate in-page updates from the popup.
+Fine Zoom is a Manifest V3 browser extension for Chromium browsers that gives you exact zoom control instead of coarse built-in presets. It supports native tab zoom, text-only scaling, and CSS-based page scaling, with per-site memory and quick control from the popup, wheel, and keyboard shortcuts.
 
 ## Screenshot
 
@@ -16,20 +14,16 @@ The screenshot above shows the settings page, including default zoom controls an
 
 ## Features
 
-- Three zoom methods:
+- Exact zoom levels with three modes:
   - `browser-zoom` (default): native tab zoom via Chrome APIs
-  - `font-size`: text-focused scaling using computed font-size overrides
-  - `css-zoom`: page scaling using CSS `zoom`
-- Per-site persistence of level and method
-- Live slider preview while dragging
-- Configurable popup button increment (`+` / `-`)
-- Fine popup controls (`0.01`) via a dedicated small +/- row
-- Ctrl/Cmd+Wheel hijack on supported pages (uses configured main step)
-- Ctrl/Cmd key hijack on supported pages:
-  - `Ctrl/Cmd +` zoom in (configured main step)
-  - `Ctrl/Cmd -` zoom out (configured main step)
-  - `Ctrl/Cmd 0` reset to default level
-- Excluded-sites list to disable zoom on selected domains
+  - `font-size`: text-only scaling using computed font-size overrides
+  - `css-zoom`: full-page scaling using CSS `zoom`
+- Per-site overrides for both zoom level and zoom method
+- Live slider preview while dragging in the popup
+- Main `+` / `-` controls with configurable step size
+- Fine adjustment controls with `0.01` increments
+- Optional Ctrl/Cmd+Wheel and Ctrl/Cmd key hijacks on supported pages
+- Excluded-sites list for domains where zoom should stay untouched
 
 ## Installation
 
