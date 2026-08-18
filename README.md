@@ -6,6 +6,8 @@
 
 Fine Zoom is a Manifest V3 browser extension for Chromium browsers that gives you exact zoom control instead of coarse built-in presets. It supports native tab zoom, text-only scaling, and CSS-based page scaling, with per-site memory and fast control from the popup, wheel, and keyboard shortcuts.
 
+**More tools:** [christianholmdev.dk/tools](https://christianholmdev.dk/tools/)
+
 Not yet published on the Chrome Web Store. Install manually through `chrome://extensions/` using `Load unpacked`.
 
 ## Screenshot
