@@ -22,6 +22,81 @@
     return defaultMethod;
   };
 
+  const areZoomLevelsEqual = (a, b, epsilon = 0.001) => {
+    const first = Number(a);
+    const second = Number(b);
+    if (!Number.isFinite(first) || !Number.isFinite(second)) return false;
+    return Math.abs(first - second) < epsilon;
+  };
+
+  const normalizeStoredLevel = (level) => {
+    const parsed = Number.parseFloat(level);
+    if (!Number.isFinite(parsed)) return null;
+    return Number(parsed.toFixed(2));
+  };
+
+  const accumulateZoomActionSteps = ({
+    accumulated = 0,
+    delta,
+    threshold = 0.05,
+    maxSteps = 20
+  } = {}) => {
+    const stepSize = Number.isFinite(threshold) && threshold > 0 ? threshold : 0.05;
+    const max = Number.isFinite(maxSteps) && maxSteps > 0 ? Math.floor(maxSteps) : 20;
+    const total = (Number.isFinite(accumulated) ? accumulated : 0) + (Number.isFinite(delta) ? delta : 0);
+    const steps = Math.floor(Math.abs(total) / stepSize);
+
+    if (steps < 1) {
+      return { steps: 0, remainder: total };
+    }
+
+    const capped = Math.min(steps, max);
+    const remainder = total - Math.sign(total) * capped * stepSize;
+    return { steps: capped, remainder };
+  };
+
+  const buildUpdatedPerSiteZoom = ({
+    perSiteZoom,
+    domain,
+    level,
+    method,
+    defaultLevel = 1.0,
+    defaultMethod = 'browser-zoom'
+  }) => {
+    if (typeof domain !== 'string' || domain.length === 0) return null;
+
+    const normalizedLevel = normalizeStoredLevel(level);
+    if (!Number.isFinite(normalizedLevel)) return null;
+
+    const current = perSiteZoom ?? {};
+    const normalizedMethod = normalizeMethod(method, defaultMethod);
+    const normalizedDefaultLevel = normalizeStoredLevel(defaultLevel) ?? 1.0;
+    const normalizedDefaultMethod = normalizeMethod(defaultMethod, 'browser-zoom');
+    const isDefault = areZoomLevelsEqual(normalizedLevel, normalizedDefaultLevel)
+      && normalizedMethod === normalizedDefaultMethod;
+
+    if (isDefault) {
+      if (!(domain in current)) return null;
+      const next = { ...current };
+      delete next[domain];
+      return next;
+    }
+
+    const existing = current[domain];
+    if (existing) {
+      const existingLevel = normalizeStoredLevel(existing.level);
+      const existingMethod = normalizeMethod(existing.method, defaultMethod);
+      if (existingMethod === normalizedMethod && areZoomLevelsEqual(existingLevel, normalizedLevel)) {
+        return null;
+      }
+    }
+
+    return {
+      ...current,
+      [domain]: { level: normalizedLevel, method: normalizedMethod }
+    };
+  };
+
   const normalizeWheelDelta = (deltaY, deltaMode, viewportHeight) => {
     if (!Number.isFinite(deltaY)) return 0;
     if (deltaMode === 1) return deltaY * 16;
@@ -50,16 +125,6 @@
     }
 
     return { accumulator: nextAccumulator, steps };
-  };
-
-  const estimateNativeZoomStepCount = (nativeDelta, baseStep = 0.1, maxSteps = 20) => {
-    const delta = Math.abs(Number.parseFloat(nativeDelta));
-    const normalizedBase = Number.isFinite(baseStep) && baseStep > 0 ? baseStep : 0.1;
-    const normalizedMax = Number.isFinite(maxSteps) && maxSteps > 0 ? Math.floor(maxSteps) : 20;
-
-    if (!Number.isFinite(delta) || delta <= 0) return 1;
-    const stepCount = Math.max(1, Math.round(delta / normalizedBase));
-    return Math.min(normalizedMax, stepCount);
   };
 
   const normalizeDeltaSteps = (steps, maxSteps = 20) => {
@@ -92,8 +157,11 @@
   const utils = {
     isDomainExcluded,
     normalizeMethod,
+    areZoomLevelsEqual,
+    normalizeStoredLevel,
+    accumulateZoomActionSteps,
+    buildUpdatedPerSiteZoom,
     accumulateCtrlWheelSteps,
-    estimateNativeZoomStepCount,
     normalizeDeltaSteps,
     shouldApplyFallbackForIntent,
     isScriptablePageUrl

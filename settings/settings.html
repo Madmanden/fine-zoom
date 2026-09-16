@@ -82,6 +82,7 @@
 
       <section class="card">
         <h2>Shortcut Hijack</h2>
+        <p class="description">Shortcuts are only hijacked when the page does not handle them itself. Excluded sites always keep native behavior.</p>
         <div class="toggle-group">
           <label class="toggle-option">
             <input type="checkbox" id="enableCtrlWheelHijack">
@@ -90,6 +91,10 @@
           <label class="toggle-option">
             <input type="checkbox" id="enableCtrlKeyHijack">
             <span>Hijack Ctrl/Cmd+, Ctrl/Cmd-, Ctrl/Cmd+0</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" id="enableZoomHud">
+            <span>Show zoom level on the page when shortcuts change the zoom</span>
           </label>
         </div>
       </section>
@@ -101,6 +106,7 @@
   </div>
   
   <script src="../shared/constants.js"></script>
+  <script src="../shared/utils.js"></script>
   <script src="settings.js"></script>
   
   <div id="toast" class="toast"></div>

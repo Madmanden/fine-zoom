@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveExcluded = document.getElementById('saveExcluded');
   const enableCtrlWheelHijack = document.getElementById('enableCtrlWheelHijack');
   const enableCtrlKeyHijack = document.getElementById('enableCtrlKeyHijack');
+  const enableZoomHud = document.getElementById('enableZoomHud');
   const resetAll = document.getElementById('resetAll');
   const toast = document.getElementById('toast');
   let currentPerSiteZoom = {};
@@ -94,7 +95,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'perSiteZoom',
       'excludedSites',
       'enableCtrlWheelHijack',
-      'enableCtrlKeyHijack'
+      'enableCtrlKeyHijack',
+      'enableZoomHud'
     ]);
 
     const method = TextZoomUtils.normalizeMethod(data.defaultMethod, DEFAULT_METHOD);
@@ -124,6 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     enableCtrlWheelHijack.checked = data.enableCtrlWheelHijack ?? true;
     enableCtrlKeyHijack.checked = data.enableCtrlKeyHijack ?? true;
+    enableZoomHud.checked = data.enableZoomHud ?? true;
   };
 
   const renderSiteList = (perSiteZoom) => {
@@ -234,6 +237,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('Ctrl key hijack updated');
   });
 
+  enableZoomHud.addEventListener('change', async (e) => {
+    await chrome.storage.local.set({ enableZoomHud: e.target.checked });
+    showToast('Zoom level indicator updated');
+  });
+
   resetAll.addEventListener('click', async () => {
     if (confirm('Are you sure you want to reset all settings to defaults?')) {
       await chrome.storage.local.set({
@@ -245,7 +253,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         perSiteZoom: {},
         excludedSites: [],
         enableCtrlWheelHijack: true,
-        enableCtrlKeyHijack: true
+        enableCtrlKeyHijack: true,
+        enableZoomHud: true
       });
       await loadSettings();
     }

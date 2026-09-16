@@ -26,7 +26,8 @@ The screenshot above shows the settings page, including default zoom controls an
 - Live slider preview while dragging in the popup
 - Main `+` / `-` controls with configurable step size
 - Fine adjustment controls with `0.01` increments
-- Optional Ctrl/Cmd+Wheel and Ctrl/Cmd key hijacks on supported pages
+- Ctrl/Cmd+Wheel and Ctrl/Cmd key hijacks that defer to pages who handle the shortcut themselves
+- On-page zoom level indicator when shortcuts change the zoom
 - Excluded-sites list for domains where zoom should stay untouched
 
 ## Installation
@@ -50,7 +51,7 @@ The screenshot above shows the settings page, including default zoom controls an
    - Main `+` / `-` buttons use your configured popup step, defaulting to `0.05`.
    - Fine `+` / `-` buttons use a fixed `0.01`.
    - `Ctrl/Cmd+MouseWheel` and trackpad pinch gestures on supported pages use your configured main step.
-   - `Ctrl/Cmd +`, `Ctrl/Cmd -`, and `Ctrl/Cmd 0` are intercepted on supported pages.
+   - `Ctrl/Cmd +`, `Ctrl/Cmd -`, and `Ctrl/Cmd 0` are intercepted on supported pages unless the page handles the key itself. `Ctrl/Cmd 0` resets to your default level.
 4. Click `Reset` to return to the default level.
 
 ### Settings page
@@ -61,10 +62,12 @@ Available settings include:
 - default method
 - default zoom level
 - popup button step
+- fine step
 - per-site overrides
 - excluded sites
 - toggle for Ctrl/Cmd+Wheel hijack
 - toggle for Ctrl/Cmd key hijack
+- toggle for the on-page zoom level indicator
 
 The per-site list only shows entries that differ from your current defaults, so it stays focused on real overrides instead of every saved site.
 
@@ -78,20 +81,27 @@ The per-site list only shows entries that differ from your current defaults, so 
 - Native zoom is only re-applied when the target value differs, reducing repeated zoom popups on navigation.
 - Ctrl/Cmd+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
 - Ctrl/Cmd key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
+- Shortcut interception is polite: it observes input in the capture phase but only acts in the bubble phase, so pages that call `preventDefault()` keep their own behavior. If the browser still applies native zoom despite the input, the change is remapped to your configured step, and `Ctrl/Cmd 0` maps to a reset even on that path.
+- Repeated key presses are batched, so holding a shortcut does not queue a long tail of zoom steps.
+- An optional on-page indicator shows the new level whenever a hijacked shortcut changes the zoom.
 
 ## Storage Keys
 
 - `defaultMethod`
 - `defaultLevel`
-- `defaultPopupButtonStep`
+- `defaultZoomStep`
+- `defaultFineZoomStep`
+- `defaultPopupButtonStep` (legacy alias kept in sync with `defaultZoomStep`)
 - `perSiteZoom`
 - `excludedSites`
 - `enableCtrlWheelHijack`
 - `enableCtrlKeyHijack`
+- `enableZoomHud`
 - `didMigrateMainButtonStepTo005`
 
 Migration flags:
 - `didMigrateToBrowserZoomDefault`
+- `didMigrateRemovePerSite100`
 
 ## Permissions
 
@@ -107,6 +117,8 @@ Migration flags:
 - Native zoom cleanup skips restricted and error pages that cannot be scripted.
 - Ctrl/Cmd+Wheel hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
 - Ctrl/Cmd key hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
+- Pages that handle a shortcut themselves win over the hijack; Fine Zoom only remaps the resulting native zoom change if the browser still handles it.
+- Zoom shortcuts pressed while a text field or editor has focus keep the page's behavior. Fine Zoom remaps the native zoom change afterwards instead of swallowing the key.
 - Trackpad pinch events are browser-dependent; Fine Zoom applies best-effort remapping and behavior may vary by browser/page.
 
 ## Project Structure

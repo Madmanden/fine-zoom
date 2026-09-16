@@ -107,8 +107,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let perSiteZoom = data.perSiteZoom ?? {};
   const defaultLevel = data.defaultLevel ?? DEFAULT_LEVEL;
+  const defaultMethod = normalizeMethod(data.defaultMethod ?? DEFAULT_METHOD);
   const siteConfig = perSiteZoom[domain];
-  let currentMethod = normalizeMethod(siteConfig?.method ?? data.defaultMethod ?? DEFAULT_METHOD);
+  let currentMethod = normalizeMethod(siteConfig?.method ?? defaultMethod);
 
   const zoomStep = clampStep(data.defaultZoomStep, DEFAULT_ZOOM_STEP);
   const fineZoomStep = clampStep(data.defaultFineZoomStep, DEFAULT_FINE_ZOOM_STEP);
@@ -216,14 +217,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const persistZoom = async (level, method) => {
     const normalizedMethod = normalizeMethod(method);
     const clampedLevel = clampForMethod(level, normalizedMethod);
-    const shouldDeletePerSite = Math.abs(clampedLevel - 1.0) < 0.001;
+    const newPerSiteZoom = TextZoomUtils.buildUpdatedPerSiteZoom({
+      perSiteZoom,
+      domain,
+      level: clampedLevel,
+      method: normalizedMethod,
+      defaultLevel,
+      defaultMethod
+    });
 
-    const newPerSiteZoom = { ...perSiteZoom };
-    if (shouldDeletePerSite) {
-      delete newPerSiteZoom[domain];
-    } else {
-      newPerSiteZoom[domain] = { level: clampedLevel, method: normalizedMethod };
-    }
+    if (!newPerSiteZoom) return true;
 
     try {
       await chrome.storage.local.set({ perSiteZoom: newPerSiteZoom });
@@ -298,10 +301,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   resetBtn.addEventListener('click', () => {
-    const resetLevel = isNativeZoomMethod(currentMethod)
-      ? clampForMethod(defaultLevel, 'browser-zoom')
-      : clampForMethod(defaultLevel, currentMethod);
-    void applyAndPersist(resetLevel, currentMethod);
+    const resetLevel = clampForMethod(defaultLevel, defaultMethod);
+    void applyAndPersist(resetLevel, defaultMethod);
   });
 
   zoomMethod.addEventListener('change', (e) => {

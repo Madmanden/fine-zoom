@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fine Zoom",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Precise browser zoom — set any zoom level instead of snapping to preset steps. Control via popup, keyboard, and scroll wheel.",
   "homepage_url": "https://github.com/Madmanden/fine-zoom",
   "permissions": [
@@ -17,8 +17,8 @@
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
-      "48": "icons/icon-32.png",
-      "128": "icons/icon-32.png"
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
     }
   },
   "background": {
@@ -43,7 +43,7 @@
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
-    "48": "icons/icon-32.png",
-    "128": "icons/icon-32.png"
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   }
 }

@@ -11,7 +11,8 @@ const {
   isDomainExcluded,
   normalizeMethod,
   accumulateCtrlWheelSteps,
-  estimateNativeZoomStepCount,
+  accumulateZoomActionSteps,
+  buildUpdatedPerSiteZoom,
   normalizeDeltaSteps,
   shouldApplyFallbackForIntent,
   isScriptablePageUrl
@@ -125,30 +126,115 @@ function testCtrlWheelAccumulation() {
   console.log('✅ Ctrl+Wheel accumulation tests passed');
 }
 
-function testNativeZoomStepEstimate() {
-  console.log('Testing native zoom delta step estimation...');
+function testZoomActionAccumulation() {
+  console.log('Testing zoom action accumulation...');
 
-  const cases = [
-    { delta: 0.01, expected: 1 },
-    { delta: 0.10, expected: 1 },
-    { delta: 0.19, expected: 2 },
-    { delta: 0.21, expected: 2 },
-    { delta: 0.49, expected: 5 },
-    { delta: 3.0, expected: 20 }
-  ];
-
-  cases.forEach(({ delta, expected }) => {
-    const result = estimateNativeZoomStepCount(delta, 0.1, 20);
-    if (result !== expected) {
-      throw new Error(`Expected ${expected} steps for native delta ${delta}, got ${result}`);
-    }
-  });
-
-  if (estimateNativeZoomStepCount(NaN, 0.1, 20) !== 1) {
-    throw new Error('Invalid native delta should default to one step');
+  const single = accumulateZoomActionSteps({ accumulated: 0, delta: 0.05, threshold: 0.05, maxSteps: 20 });
+  if (single.steps !== 1 || Math.abs(single.remainder) > 1e-9) {
+    throw new Error(`Expected one step and no remainder, got ${JSON.stringify(single)}`);
   }
 
-  console.log('✅ Native zoom delta estimation tests passed');
+  const partial = accumulateZoomActionSteps({ accumulated: 0, delta: 0.02, threshold: 0.05, maxSteps: 20 });
+  if (partial.steps !== 0 || Math.abs(partial.remainder - 0.02) > 1e-9) {
+    throw new Error(`Sub-threshold movement should accumulate, got ${JSON.stringify(partial)}`);
+  }
+
+  const continued = accumulateZoomActionSteps({ accumulated: partial.remainder, delta: 0.04, threshold: 0.05, maxSteps: 20 });
+  if (continued.steps !== 1 || Math.abs(continued.remainder - 0.01) > 1e-9) {
+    throw new Error(`Expected a step once the threshold is crossed, got ${JSON.stringify(continued)}`);
+  }
+
+  const negative = accumulateZoomActionSteps({ accumulated: 0, delta: -0.06, threshold: 0.05, maxSteps: 20 });
+  if (negative.steps !== 1 || negative.remainder > 0) {
+    throw new Error(`Negative movement should keep its sign, got ${JSON.stringify(negative)}`);
+  }
+
+  const capped = accumulateZoomActionSteps({ accumulated: 0, delta: 3, threshold: 0.05, maxSteps: 4 });
+  if (capped.steps !== 4) {
+    throw new Error(`Expected the step cap to apply, got ${JSON.stringify(capped)}`);
+  }
+
+  const invalid = accumulateZoomActionSteps({ accumulated: NaN, delta: NaN, threshold: 0, maxSteps: 0 });
+  if (invalid.steps !== 0 || invalid.remainder !== 0) {
+    throw new Error(`Invalid input should be inert, got ${JSON.stringify(invalid)}`);
+  }
+
+  console.log('✅ Zoom action accumulation tests passed');
+}
+
+function testPerSiteZoomUpdates() {
+  console.log('Testing per-site zoom updates...');
+
+  const defaults = { defaultLevel: 1.0, defaultMethod: 'browser-zoom' };
+
+  const deleted = buildUpdatedPerSiteZoom({
+    perSiteZoom: { 'example.com': { level: 1.0, method: 'browser-zoom' } },
+    domain: 'example.com',
+    level: 1.0,
+    method: 'browser-zoom',
+    ...defaults
+  });
+  if (deleted === null || 'example.com' in deleted) {
+    throw new Error('Entries matching the defaults should be removed');
+  }
+
+  const noChange = buildUpdatedPerSiteZoom({
+    perSiteZoom: {},
+    domain: 'example.com',
+    level: 1.0,
+    method: 'browser-zoom',
+    ...defaults
+  });
+  if (noChange !== null) {
+    throw new Error('Removing a missing entry should be a no-op');
+  }
+
+  const keptBelowCustomDefault = buildUpdatedPerSiteZoom({
+    perSiteZoom: {},
+    domain: 'example.com',
+    level: 1.0,
+    method: 'browser-zoom',
+    defaultLevel: 1.25,
+    defaultMethod: 'browser-zoom'
+  });
+  if (!keptBelowCustomDefault || keptBelowCustomDefault['example.com']?.level !== 1.0) {
+    throw new Error('A 1.0 entry must be kept when the default level is not 1.0');
+  }
+
+  const repeated = buildUpdatedPerSiteZoom({
+    perSiteZoom: { 'example.com': { level: 1.1, method: 'browser-zoom' } },
+    domain: 'example.com',
+    level: 1.1,
+    method: 'browser-zoom',
+    ...defaults
+  });
+  if (repeated !== null) {
+    throw new Error('Unchanged entries should not be rewritten');
+  }
+
+  const methodOverride = buildUpdatedPerSiteZoom({
+    perSiteZoom: {},
+    domain: 'example.com',
+    level: 1.0,
+    method: 'font-size',
+    ...defaults
+  });
+  if (!methodOverride || methodOverride['example.com']?.method !== 'font-size') {
+    throw new Error('A method override at the default level should be kept');
+  }
+
+  const rounded = buildUpdatedPerSiteZoom({
+    perSiteZoom: {},
+    domain: 'example.com',
+    level: 1.234,
+    method: 'browser-zoom',
+    ...defaults
+  });
+  if (rounded?.['example.com']?.level !== 1.23) {
+    throw new Error('Stored levels should be rounded to two decimals');
+  }
+
+  console.log('✅ Per-site zoom update tests passed');
 }
 
 function testDeltaStepNormalization() {
@@ -247,7 +333,8 @@ try {
   testDomainExclusion();
   testMethodNormalization();
   testCtrlWheelAccumulation();
-  testNativeZoomStepEstimate();
+  testZoomActionAccumulation();
+  testPerSiteZoomUpdates();
   testDeltaStepNormalization();
   testFallbackIntentGating();
   testScriptablePageDetection();
