@@ -26,7 +26,8 @@ The screenshot above shows the settings page, including default zoom controls an
 - Live slider preview while dragging in the popup
 - Main `+` / `-` controls with configurable step size
 - Fine adjustment controls with `0.01` increments
-- Ctrl/Cmd+Wheel and Ctrl/Cmd key hijacks that defer to pages who handle the shortcut themselves
+- Ctrl/Cmd+Wheel and Ctrl/Cmd key hijacks that defer to pages that handle the shortcut themselves, work in text fields, and match Chromium's own zoom keys on every keyboard layout
+- One wheel notch is one step at every zoom level
 - On-page zoom level indicator when shortcuts change the zoom
 - Excluded-sites list for domains where zoom should stay untouched
 
@@ -77,13 +78,17 @@ The per-site list only shows entries that differ from your current defaults, so 
 - Content scripts handle CSS-based methods at `document_start`.
 - Native mode uses `chrome.tabs.setZoom()` and `chrome.tabs.getZoom()`.
 - Site-specific settings are stored in `chrome.storage.local`.
-- In browser-zoom mode, manual native browser zoom changes are synchronized into extension state.
+- In browser-zoom mode, manual native browser zoom changes (for example from the Chrome menu) are synchronized into extension state.
+- The extension's stored level is the source of truth. Chrome also remembers zoom per site, and when it restores an outdated level during navigation, Fine Zoom puts the stored level back instead of saving Chrome's value.
+- Stored native zoom is applied as soon as the top-level document starts, not only when the page has fully loaded.
 - Native zoom is only re-applied when the target value differs, reducing repeated zoom popups on navigation.
-- Ctrl/Cmd+Wheel is intercepted in the content script and routed to the background worker for apply + persistence.
-- Ctrl/Cmd key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence.
+- The background worker tracks every level it asked the browser to apply per site, so the echoes of its own changes (rapid steps, other tabs of the same site) are never mistaken for user changes.
+- Ctrl/Cmd+Wheel is intercepted in the content script and routed to the background worker for apply + persistence. Wheel movement is scaled by the current browser zoom, so one wheel notch is one step at every zoom level.
+- Ctrl/Cmd key zoom shortcuts are intercepted in the content script and routed to the background worker for apply + persistence. Keys are matched the way Chromium matches its own zoom shortcuts (virtual key codes), so they work on any keyboard layout.
 - Shortcut interception is polite: it observes input in the capture phase but only acts in the bubble phase, so pages that call `preventDefault()` keep their own behavior. If the browser still applies native zoom despite the input, the change is remapped to your configured step, and `Ctrl/Cmd 0` maps to a reset even on that path.
 - Repeated key presses are batched, so holding a shortcut does not queue a long tail of zoom steps.
-- An optional on-page indicator shows the new level whenever a hijacked shortcut changes the zoom.
+- Per-site levels from streamed input are written to storage at most every 300 ms, because every storage write is broadcast to every open frame.
+- An optional on-page indicator shows the new level whenever a shortcut changes the zoom, including remapped browser zoom. It is drawn once in the top frame, isolated in a shadow root, and keeps the same size at every zoom level.
 
 ## Storage Keys
 
@@ -118,7 +123,7 @@ Migration flags:
 - Ctrl/Cmd+Wheel hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
 - Ctrl/Cmd key hijack only applies where content scripts run (`http/https` pages). Restricted pages keep native browser behavior.
 - Pages that handle a shortcut themselves win over the hijack; Fine Zoom only remaps the resulting native zoom change if the browser still handles it.
-- Zoom shortcuts pressed while a text field or editor has focus keep the page's behavior. Fine Zoom remaps the native zoom change afterwards instead of swallowing the key.
+- Zoom shortcuts are also handled while a text field has focus, since they have no editing meaning there. Editors that bind them call `preventDefault()` and keep their behavior.
 - Trackpad pinch events are browser-dependent; Fine Zoom applies best-effort remapping and behavior may vary by browser/page.
 
 ## Project Structure
@@ -127,6 +132,8 @@ Migration flags:
 .
 ├── background.js
 ├── manifest.json
+├── docs/
+│   └── HANDOFF.md
 ├── content/
 │   ├── content.js
 │   └── zoom-methods.js
@@ -140,8 +147,12 @@ Migration flags:
 │   └── settings.js
 ├── screenshots/
 │   └── Screenshot.png
+├── scripts/
+│   ├── e2e-takeover.js
+│   └── generate_icons.py
 ├── shared/
 │   ├── constants.js
+│   ├── messaging.js
 │   └── utils.js
 └── test-logic.js
 ```
@@ -152,6 +163,12 @@ Run basic logic tests:
 
 ```bash
 node test-logic.js
+```
+
+Run the end-to-end zoom takeover check in real Chromium (needs a `playwright-core` install with its Chromium; extensions only load headed, so use `xvfb-run` without a display):
+
+```bash
+xvfb-run -a node scripts/e2e-takeover.js . path/to/node_modules/playwright-core
 ```
 
 ## Privacy

@@ -154,6 +154,85 @@
     }
   };
 
+  // Chromium binds its zoom accelerators to virtual key codes, which the DOM
+  // exposes as `keyCode`. Matching on the same codes intercepts exactly the
+  // keys the browser would zoom with on every keyboard layout (for example
+  // `+` on Danish/German layouts, and never `ß` or Ctrl+Insert).
+  const ZOOM_KEY_CODES = {
+    187: 'zoom-in', // VKEY_OEM_PLUS
+    107: 'zoom-in', // VKEY_ADD
+    61: 'zoom-in', // '=' on some platforms
+    189: 'zoom-out', // VKEY_OEM_MINUS
+    109: 'zoom-out', // VKEY_SUBTRACT
+    173: 'zoom-out', // '-' on some platforms
+    48: 'zoom-reset', // VKEY_0
+    96: 'zoom-reset' // VKEY_NUMPAD0
+  };
+
+  const resolveZoomCommand = ({ keyCode, key } = {}) => {
+    // 229 is reported while an IME is composing; 0 for synthetic events.
+    if (Number.isInteger(keyCode) && keyCode !== 0 && keyCode !== 229) {
+      return ZOOM_KEY_CODES[keyCode] ?? null;
+    }
+
+    if (key === '+' || key === '=' || key === 'Add') return 'zoom-in';
+    if (key === '-' || key === '_' || key === 'Subtract') return 'zoom-out';
+    if (key === '0') return 'zoom-reset';
+    return null;
+  };
+
+  // Levels this extension asked the browser to apply, keyed by site. Native
+  // zoom is per-origin, so one setZoom() fires onZoomChange in every tab of
+  // that site, and rapid sequences fire one event per level. Matching is
+  // therefore non-consuming and checks every recent level, not just the last.
+  const MAX_EXPECTED_ZOOM_ENTRIES = 32;
+
+  const pruneExpectedZoomLevels = (entries, now) => {
+    if (!Array.isArray(entries)) return [];
+    return entries.filter((entry) => entry && Number.isFinite(entry.expiresAt) && entry.expiresAt > now);
+  };
+
+  const recordExpectedZoomLevel = (entries, level, now, ttlMs) => {
+    const next = pruneExpectedZoomLevels(entries, now)
+      .filter((entry) => !areZoomLevelsEqual(entry.level, level));
+    next.push({ level, expiresAt: now + ttlMs });
+    return next.slice(-MAX_EXPECTED_ZOOM_ENTRIES);
+  };
+
+  const matchesExpectedZoomLevel = (entries, level, now) => {
+    return pruneExpectedZoomLevels(entries, now)
+      .some((entry) => areZoomLevelsEqual(entry.level, level));
+  };
+
+  // Applies the not-yet-persisted per-site levels on top of a stored map so a
+  // debounced write never loses changes and never clobbers unrelated edits.
+  const applyPendingSiteUpdates = ({
+    perSiteZoom,
+    pendingUpdates,
+    defaultLevel,
+    defaultMethod
+  }) => {
+    let current = perSiteZoom ?? {};
+    let changed = false;
+
+    for (const [domain, update] of pendingUpdates ?? []) {
+      const next = buildUpdatedPerSiteZoom({
+        perSiteZoom: current,
+        domain,
+        level: update.level,
+        method: update.method,
+        defaultLevel,
+        defaultMethod
+      });
+      if (next) {
+        current = next;
+        changed = true;
+      }
+    }
+
+    return { perSiteZoom: current, changed };
+  };
+
   const utils = {
     isDomainExcluded,
     normalizeMethod,
@@ -162,9 +241,14 @@
     accumulateZoomActionSteps,
     buildUpdatedPerSiteZoom,
     accumulateCtrlWheelSteps,
+    normalizeWheelDelta,
     normalizeDeltaSteps,
     shouldApplyFallbackForIntent,
-    isScriptablePageUrl
+    isScriptablePageUrl,
+    resolveZoomCommand,
+    recordExpectedZoomLevel,
+    matchesExpectedZoomLevel,
+    applyPendingSiteUpdates
   };
 
   root.TextZoomUtils = utils;

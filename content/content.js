@@ -24,11 +24,11 @@
     }
   }
 
-  const { isDomainExcluded } = TextZoomUtils;
+  const { isDomainExcluded, resolveZoomCommand } = TextZoomUtils;
   const normalizeMethod = (method) => TextZoomUtils.normalizeMethod(method, DEFAULT_METHOD);
 
   const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
-  const CTRL_WHEEL_DELTA_THRESHOLD = 70;
+  const IS_TOP_FRAME = window === window.top;
   const INPUT_INTENT_THROTTLE_MS = 80;
   const STEP_FLUSH_DELAY_MS = 40;
   const HUD_VISIBLE_MS = 900;
@@ -41,16 +41,18 @@
   let isCtrlKeyEnabled = false;
   let isHudEnabled = true;
   let didInitializeSettings = false;
-  let ctrlWheelAccumulator = 0;
-  let pendingWheelSteps = 0;
+  let pendingWheelDelta = 0;
   let pendingKeySteps = 0;
   let pendingReset = false;
   let stepFlushTimer = null;
   let stepFlushInProgress = false;
   let lastWheelIntentAt = 0;
   let lastKeyIntentAt = 0;
-  let hudElement = null;
+  let hudHost = null;
+  let hudPill = null;
   let hudHideTimer = null;
+  let knownDefaultMethod = DEFAULT_METHOD;
+  let knownSiteMethod;
 
   const isRuntimeAlive = () => {
     try {
@@ -66,29 +68,6 @@
     return event.ctrlKey && !event.metaKey;
   };
 
-  const resolveZoomCommand = (event) => {
-    const key = event.key;
-    const code = event.code;
-
-    if (key === '+' || key === '=' || key === 'Add' || code === 'Equal' || code === 'NumpadAdd') {
-      return 'zoom-in';
-    }
-    if (key === '-' || key === '_' || key === 'Subtract' || code === 'Minus' || code === 'NumpadSubtract') {
-      return 'zoom-out';
-    }
-    if (key === '0' || code === 'Digit0' || code === 'Numpad0') {
-      return 'zoom-reset';
-    }
-    return null;
-  };
-
-  const isEditableTarget = (target) => {
-    if (!(target instanceof Element)) return false;
-    if (target.isContentEditable) return true;
-    const tag = target.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-  };
-
   const sendZoomInputIntent = (kind, command) => {
     void chrome.runtime.sendMessage({ action: 'recordZoomInputIntent', kind, command }).catch(() => {});
   };
@@ -97,6 +76,8 @@
     const legacyStyle = document.getElementById('fine-zoom-transform-style');
     if (legacyStyle) legacyStyle.remove();
   };
+
+  const hasContentZoomApplied = () => currentMethod !== 'browser-zoom' && currentLevel !== 1.0;
 
   const applyZoom = (level, method) => {
     if (!ZoomMethods[method]) {
@@ -125,44 +106,86 @@
     }
   };
 
-  const ensureHudElement = () => {
-    if (!isHudEnabled || !document.documentElement) return null;
-    if (hudElement && hudElement.isConnected) return hudElement;
+  const HUD_HOST_STYLES = [
+    ['all', 'initial'],
+    ['position', 'fixed'],
+    ['left', '50%'],
+    ['bottom', '24px'],
+    ['transform', 'translateX(-50%)'],
+    ['z-index', '2147483647'],
+    ['pointer-events', 'none'],
+    ['display', 'block'],
+    ['zoom', '1']
+  ];
 
-    hudElement = document.createElement('div');
-    hudElement.setAttribute('aria-hidden', 'true');
-    hudElement.style.cssText = [
-      'position:fixed',
-      'left:50%',
-      'bottom:24px',
-      'transform:translateX(-50%)',
-      'z-index:2147483647',
-      'pointer-events:none',
-      'background:rgba(17,17,17,.88)',
-      'color:#fff',
-      'font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',
-      'padding:8px 12px',
-      'border-radius:999px',
-      'opacity:0',
-      'transition:opacity 120ms ease-out',
-      'box-shadow:0 2px 8px rgba(0,0,0,.25)'
-    ].join(';');
-    document.documentElement.appendChild(hudElement);
-    return hudElement;
+  const HUD_SHADOW_CSS = `
+    .pill {
+      background: rgba(17, 17, 17, .88);
+      color: #fff;
+      font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+      padding: 8px 12px;
+      border-radius: 999px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 120ms ease-out;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+    }
+    .pill.visible { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) { .pill { transition: none; } }
+  `;
+
+  const removeHud = () => {
+    if (hudHideTimer) {
+      clearTimeout(hudHideTimer);
+      hudHideTimer = null;
+    }
+    if (hudHost) hudHost.remove();
+    hudHost = null;
+    hudPill = null;
   };
 
-  const showZoomHud = (level) => {
+  // A closed shadow root keeps page CSS from restyling the indicator, and
+  // building it with DOM APIs keeps it working under Trusted Types CSPs.
+  const ensureHud = () => {
+    if (!IS_TOP_FRAME || !isHudEnabled || !document.documentElement) return null;
+    if (hudHost && hudHost.isConnected && hudPill) return hudPill;
+
+    removeHud();
+    const host = document.createElement('fine-zoom-hud');
+    host.setAttribute('aria-hidden', 'true');
+    HUD_HOST_STYLES.forEach(([property, value]) => host.style.setProperty(property, value, 'important'));
+
+    const root = host.attachShadow({ mode: 'closed' });
+    const style = document.createElement('style');
+    style.textContent = HUD_SHADOW_CSS;
+    const pill = document.createElement('div');
+    pill.className = 'pill';
+    root.append(style, pill);
+
+    document.documentElement.appendChild(host);
+    hudHost = host;
+    hudPill = pill;
+    return pill;
+  };
+
+  // `scale` is how much the page is currently magnified (browser zoom or CSS
+  // zoom on <html>); the host cancels it so the indicator keeps one size.
+  const showZoomHud = (level, scale) => {
     if (!isHudEnabled || typeof level !== 'number' || !Number.isFinite(level)) return;
 
-    const hud = ensureHudElement();
-    if (!hud) return;
+    const pill = ensureHud();
+    if (!pill) return;
 
-    hud.textContent = `${Math.round(level * 100)}%`;
-    hud.style.opacity = '1';
+    const counterZoom = Number.isFinite(scale) && scale > 0 ? 1 / scale : 1;
+    hudHost.style.setProperty('zoom', String(counterZoom), 'important');
+    pill.textContent = `${Math.round(level * 100)}%`;
+    pill.classList.add('visible');
 
     if (hudHideTimer) clearTimeout(hudHideTimer);
     hudHideTimer = setTimeout(() => {
-      if (hudElement) hudElement.style.opacity = '0';
+      hudHideTimer = null;
+      if (hudPill) hudPill.classList.remove('visible');
     }, HUD_VISIBLE_MS);
   };
 
@@ -171,15 +194,15 @@
     stepFlushInProgress = true;
 
     try {
-      while (pendingKeySteps !== 0 || pendingWheelSteps !== 0 || pendingReset) {
+      while (pendingKeySteps !== 0 || pendingWheelDelta !== 0 || pendingReset) {
         let payload;
 
         if (pendingKeySteps !== 0) {
           payload = { action: 'adjustZoomByDelta', deltaSteps: pendingKeySteps, source: 'key-hijack' };
           pendingKeySteps = 0;
-        } else if (pendingWheelSteps !== 0) {
-          payload = { action: 'adjustZoomByDelta', deltaSteps: pendingWheelSteps, source: 'wheel-hijack' };
-          pendingWheelSteps = 0;
+        } else if (pendingWheelDelta !== 0) {
+          payload = { action: 'adjustZoomByDelta', wheelDelta: pendingWheelDelta, source: 'wheel-hijack' };
+          pendingWheelDelta = 0;
         } else {
           pendingReset = false;
           payload = { action: 'adjustZoomByCommand', command: 'zoom-reset' };
@@ -187,12 +210,12 @@
 
         try {
           const response = await chrome.runtime.sendMessage(payload);
+          // The background worker shows the indicator in the top frame.
           if (response?.success && typeof response.level === 'number') {
             currentLevel = response.level;
-            showZoomHud(response.level);
           }
         } catch (error) {
-          pendingWheelSteps = 0;
+          pendingWheelDelta = 0;
           pendingKeySteps = 0;
           pendingReset = false;
 
@@ -237,17 +260,12 @@
 
     event.preventDefault();
 
-    const wheelUpdate = TextZoomUtils.accumulateCtrlWheelSteps({
-      accumulator: ctrlWheelAccumulator,
-      deltaY: event.deltaY,
-      deltaMode: event.deltaMode,
-      viewportHeight: window.innerHeight,
-      threshold: CTRL_WHEEL_DELTA_THRESHOLD
-    });
-    ctrlWheelAccumulator = wheelUpdate.accumulator;
-    pendingWheelSteps += wheelUpdate.steps;
+    // Raw deltas go to the background worker, which knows the real browser
+    // zoom: Chromium reports wheel deltas in CSS pixels, so the same wheel
+    // notch shrinks as the page zooms in and must be scaled back.
+    pendingWheelDelta += TextZoomUtils.normalizeWheelDelta(event.deltaY, event.deltaMode, window.innerHeight);
 
-    if (pendingWheelSteps !== 0) {
+    if (pendingWheelDelta !== 0) {
       void flushPendingSteps();
     }
   };
@@ -273,11 +291,8 @@
     const command = resolveZoomCommand(event);
     if (!command) return;
 
-    // Text fields and editors keep their own behavior. The intent recorded
-    // above still lets the background worker fine-tune the resulting native
-    // zoom instead of relying on browser presets.
-    if (isEditableTarget(event.target)) return;
-
+    // Zoom shortcuts have no editing meaning, so text fields are handled too;
+    // editors that bind them call preventDefault() and are skipped above.
     event.preventDefault();
 
     if (command === 'zoom-reset') {
@@ -315,9 +330,8 @@
       isCtrlKeyEnabled = enabledForPage && (data.enableCtrlKeyHijack ?? true);
       isHudEnabled = data.enableZoomHud ?? true;
 
-      if (!isHudEnabled && hudElement) {
-        hudElement.remove();
-        hudElement = null;
+      if (!isHudEnabled) {
+        removeHud();
       }
     } catch {
       isCtrlWheelEnabled = false;
@@ -336,6 +350,24 @@
     if (changes.excludedSites || changes.enableCtrlWheelHijack || changes.enableCtrlKeyHijack || changes.enableZoomHud) {
       void refreshSettings();
     }
+
+    if (changes.defaultMethod) {
+      knownDefaultMethod = normalizeMethod(changes.defaultMethod.newValue ?? DEFAULT_METHOD);
+    }
+
+    // When stored settings switch this site to native zoom, drop the content
+    // scaling here; the background worker does not clear it on every step.
+    if ((changes.perSiteZoom || changes.defaultMethod) && hasContentZoomApplied()) {
+      const siteConfig = changes.perSiteZoom
+        ? changes.perSiteZoom.newValue?.[currentDomain]
+        : undefined;
+      const siteMethod = changes.perSiteZoom ? siteConfig?.method : knownSiteMethod;
+      if (changes.perSiteZoom) knownSiteMethod = siteMethod;
+      const effectiveMethod = normalizeMethod(siteMethod ?? knownDefaultMethod);
+      if (effectiveMethod === 'browser-zoom') {
+        applyZoom(1.0, 'browser-zoom');
+      }
+    }
   };
 
   const handleMessage = (request, sender, sendResponse) => {
@@ -344,6 +376,12 @@
     if (request.action === 'setZoom') {
       const success = applyZoom(request.level, normalizeMethod(request.method));
       sendResponse({ success });
+      return;
+    }
+
+    if (request.action === 'showZoomHud') {
+      showZoomHud(request.level, request.scale);
+      sendResponse({ success: true });
     }
   };
 
@@ -373,10 +411,7 @@
         Object.values(ZoomMethods).forEach((zoomMethod) => zoomMethod.remove());
       }
 
-      if (hudElement) {
-        hudElement.remove();
-        hudElement = null;
-      }
+      removeHud();
 
       if (window.__fineZoomInstance === instance) {
         delete window.__fineZoomInstance;
@@ -390,6 +425,12 @@
   window.__fineZoomInstance = instance;
 
   const initializeZoom = async () => {
+    // Let the background worker apply stored native zoom right away instead
+    // of waiting for the whole page (images included) to finish loading.
+    if (IS_TOP_FRAME) {
+      void chrome.runtime.sendMessage({ action: 'documentStarted' }).catch(() => {});
+    }
+
     try {
       const url = new URL(window.location.href);
       const domain = url.hostname;
@@ -401,6 +442,9 @@
         'defaultLevel',
         'excludedSites'
       ]);
+
+      knownDefaultMethod = normalizeMethod(data.defaultMethod ?? DEFAULT_METHOD);
+      knownSiteMethod = data.perSiteZoom?.[domain]?.method;
 
       const excludedSites = data.excludedSites ?? [];
       isCurrentDomainExcluded = isDomainExcluded(domain, excludedSites);

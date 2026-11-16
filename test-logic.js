@@ -15,7 +15,11 @@ const {
   buildUpdatedPerSiteZoom,
   normalizeDeltaSteps,
   shouldApplyFallbackForIntent,
-  isScriptablePageUrl
+  isScriptablePageUrl,
+  resolveZoomCommand,
+  recordExpectedZoomLevel,
+  matchesExpectedZoomLevel,
+  applyPendingSiteUpdates
 } = require('./shared/utils.js');
 
 function testDomainExclusion() {
@@ -312,6 +316,170 @@ function testScriptablePageDetection() {
   console.log('✅ Scriptable page detection tests passed');
 }
 
+function testZoomCommandResolution() {
+  console.log('Testing zoom shortcut resolution...');
+  const cases = [
+    // US layout
+    { event: { keyCode: 187, key: '=' }, expected: 'zoom-in' },
+    { event: { keyCode: 187, key: '+' }, expected: 'zoom-in' },
+    { event: { keyCode: 189, key: '-' }, expected: 'zoom-out' },
+    { event: { keyCode: 48, key: '0' }, expected: 'zoom-reset' },
+    // Numpad
+    { event: { keyCode: 107, key: '+' }, expected: 'zoom-in' },
+    { event: { keyCode: 109, key: '-' }, expected: 'zoom-out' },
+    { event: { keyCode: 96, key: '0' }, expected: 'zoom-reset' },
+    // Danish/German layouts: '+' sits where US has '-', so key codes matter
+    { event: { keyCode: 187, key: '+', code: 'Minus' }, expected: 'zoom-in' },
+    { event: { keyCode: 189, key: '-', code: 'Slash' }, expected: 'zoom-out' },
+    // German 'ß' and Danish dead accent key are not zoom keys
+    { event: { keyCode: 219, key: 'ß', code: 'Minus' }, expected: null },
+    { event: { keyCode: 219, key: 'Dead', code: 'Equal' }, expected: null },
+    // Ctrl+Insert (numpad 0 with Num Lock off) is copy, not reset
+    { event: { keyCode: 45, key: 'Insert', code: 'Numpad0' }, expected: null },
+    // IME composition and synthetic events fall back to the key value
+    { event: { keyCode: 229, key: '+' }, expected: 'zoom-in' },
+    { event: { keyCode: 0, key: '-' }, expected: 'zoom-out' },
+    { event: { key: '0' }, expected: 'zoom-reset' },
+    { event: { keyCode: 0, key: 'a' }, expected: null },
+    { event: undefined, expected: null }
+  ];
+
+  cases.forEach(({ event, expected }) => {
+    const result = resolveZoomCommand(event);
+    if (result !== expected) {
+      throw new Error(`Zoom command for ${JSON.stringify(event)}: expected ${expected}, got ${result}`);
+    }
+  });
+
+  console.log('✅ Zoom shortcut resolution tests passed');
+}
+
+function testExpectedZoomTracking() {
+  console.log('Testing expected native zoom tracking...');
+  const ttl = 1000;
+
+  // Rapid steps: the event for an earlier level must still match after a
+  // later level was recorded (the old single-slot tracker missed this).
+  let entries = recordExpectedZoomLevel([], 1.05, 0, ttl);
+  entries = recordExpectedZoomLevel(entries, 1.10, 10, ttl);
+  entries = recordExpectedZoomLevel(entries, 1.15, 20, ttl);
+  if (!matchesExpectedZoomLevel(entries, 1.05, 30)) {
+    throw new Error('Earlier own zoom level should still match');
+  }
+  if (!matchesExpectedZoomLevel(entries, 1.15, 30)) {
+    throw new Error('Latest own zoom level should match');
+  }
+
+  // Matching is non-consuming so other tabs of the same site match too.
+  if (!matchesExpectedZoomLevel(entries, 1.10, 40) || !matchesExpectedZoomLevel(entries, 1.10, 50)) {
+    throw new Error('Own zoom level should match repeatedly within the TTL');
+  }
+
+  if (matchesExpectedZoomLevel(entries, 1.25, 30)) {
+    throw new Error('Foreign zoom level should not match');
+  }
+
+  if (matchesExpectedZoomLevel(entries, 1.05, 1001)) {
+    throw new Error('Expired own zoom level should not match');
+  }
+  if (!matchesExpectedZoomLevel(entries, 1.15, 1001)) {
+    throw new Error('Unexpired own zoom level should still match');
+  }
+
+  // Re-recording a level refreshes it instead of duplicating it.
+  entries = recordExpectedZoomLevel(entries, 1.05, 900, ttl);
+  if (entries.filter((entry) => Math.abs(entry.level - 1.05) < 0.001).length !== 1) {
+    throw new Error('Re-recorded level should not be duplicated');
+  }
+  if (!matchesExpectedZoomLevel(entries, 1.05, 1500)) {
+    throw new Error('Re-recorded level should use the refreshed expiry');
+  }
+
+  // Bounded size.
+  let many = [];
+  for (let index = 0; index < 100; index += 1) {
+    many = recordExpectedZoomLevel(many, 0.25 + index * 0.01, index, ttl);
+  }
+  if (many.length > 32) {
+    throw new Error('Expected zoom entries should be bounded');
+  }
+
+  if (matchesExpectedZoomLevel(undefined, 1.0, 0)) {
+    throw new Error('Missing entries should not match');
+  }
+
+  console.log('✅ Expected native zoom tracking tests passed');
+}
+
+function testPendingSiteUpdates() {
+  console.log('Testing pending per-site updates...');
+
+  const stored = {
+    'other.com': { level: 1.3, method: 'browser-zoom' },
+    'example.com': { level: 1.1, method: 'browser-zoom' }
+  };
+
+  const pending = new Map([
+    ['example.com', { level: 1.25, method: 'browser-zoom' }],
+    ['new.dev', { level: 0.9, method: 'css-zoom' }]
+  ]);
+
+  const merged = applyPendingSiteUpdates({
+    perSiteZoom: stored,
+    pendingUpdates: pending,
+    defaultLevel: 1.0,
+    defaultMethod: 'browser-zoom'
+  });
+
+  if (!merged.changed) {
+    throw new Error('Pending updates should report a change');
+  }
+  if (merged.perSiteZoom['other.com'].level !== 1.3) {
+    throw new Error('Unrelated sites must be preserved');
+  }
+  if (merged.perSiteZoom['example.com'].level !== 1.25) {
+    throw new Error('Pending level should override the stored level');
+  }
+  if (merged.perSiteZoom['new.dev'].method !== 'css-zoom') {
+    throw new Error('Pending new site should be added');
+  }
+  if (stored['example.com'].level !== 1.1) {
+    throw new Error('Stored map must not be mutated');
+  }
+
+  const backToDefault = applyPendingSiteUpdates({
+    perSiteZoom: stored,
+    pendingUpdates: new Map([['example.com', { level: 1.0, method: 'browser-zoom' }]]),
+    defaultLevel: 1.0,
+    defaultMethod: 'browser-zoom'
+  });
+  if ('example.com' in backToDefault.perSiteZoom) {
+    throw new Error('Pending default level should remove the override');
+  }
+
+  const unchanged = applyPendingSiteUpdates({
+    perSiteZoom: stored,
+    pendingUpdates: new Map([['other.com', { level: 1.3, method: 'browser-zoom' }]]),
+    defaultLevel: 1.0,
+    defaultMethod: 'browser-zoom'
+  });
+  if (unchanged.changed || unchanged.perSiteZoom !== stored) {
+    throw new Error('Pending updates matching storage should not report a change');
+  }
+
+  const empty = applyPendingSiteUpdates({
+    perSiteZoom: undefined,
+    pendingUpdates: undefined,
+    defaultLevel: 1.0,
+    defaultMethod: 'browser-zoom'
+  });
+  if (empty.changed || Object.keys(empty.perSiteZoom).length !== 0) {
+    throw new Error('Empty inputs should produce an empty unchanged map');
+  }
+
+  console.log('✅ Pending per-site update tests passed');
+}
+
 function testConstants() {
   console.log('Testing constants...');
   if (ZOOM_MIN !== 0.5 || ZOOM_MAX !== 3.0) {
@@ -338,6 +506,9 @@ try {
   testDeltaStepNormalization();
   testFallbackIntentGating();
   testScriptablePageDetection();
+  testZoomCommandResolution();
+  testExpectedZoomTracking();
+  testPendingSiteUpdates();
   testConstants();
   console.log('\nAll tests passed successfully!');
 } catch (error) {
