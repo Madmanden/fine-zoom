@@ -341,9 +341,17 @@ const clearContentZoom = async (tabId) => {
   }
 };
 
+// setZoom() acts on whatever the tab has committed when the call runs. A
+// decision made for one page (a redirect, a logon step, an outdated event)
+// must not land on the page that replaced it, so re-check the site first.
 const setNativeZoom = async (tabId, domain, level) => {
+  if (domain) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (toDomain(tab?.url) !== domain) return false;
+  }
   rememberExpectedNativeZoom(domain, level);
   await chrome.tabs.setZoom(tabId, level);
+  return true;
 };
 
 const applyNativeZoom = async (tabId, domain, level, knownCurrentLevel) => {

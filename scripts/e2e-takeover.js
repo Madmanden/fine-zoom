@@ -167,6 +167,14 @@ const near = (a, b) => Math.abs(a - b) < 0.001;
     await sleep(400);
     const cssAfter = await pageB.evaluate(() => !!document.getElementById('fine-zoom-style'));
     check('css-zoom removed after switching to native', !cssAfter, String(cssAfter));
+
+    // 12. A level decided for another site (for example a redirect step the
+    // tab has already left) must not land on the page now in the tab.
+    const tabB = await tabIdFor(urlB);
+    const beforeForeign = await zoom(tabB);
+    await sw.evaluate((t) => applyNativeZoom(t, 'sso.example', 0.5), tabB);
+    await sleep(300);
+    check('zoom meant for another site is not applied', near(await zoom(tabB), beforeForeign), `${await zoom(tabB)} vs ${beforeForeign}`);
   } catch (error) {
     check('script error', false, error.stack);
   } finally {

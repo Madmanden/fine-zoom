@@ -5,7 +5,29 @@ release commit directly after `fceb768`, and pushed to `origin`. As before,
 distribution is a manual "Load unpacked" install; there is no Web Store
 listing and no GitHub Release.
 
-## What changed and why
+## On `main` after `v1.2.0` (`1ec8484`), not released or version-bumped
+
+- **Report:** in Edge, an SAP portal (`rghsap002.regionh.top.local:50101/irj/portal`)
+  often, but not always, opens at 100% even though `perSiteZoom` holds 1.25
+  native for it. This started after 1.2.0 according to the user, but is not
+  confirmed by running 1.1.0 side by side.
+- **Suspected cause:** 1.2.0 calls `setZoom` early in navigation
+  (`documentStarted`, reassert while loading). `setZoom` acts on whatever the
+  tab has committed when it runs, so a level decided for an intermediate page
+  (logon, redirect, another host) could land on the portal.
+- **Fix:** `setNativeZoom` re-reads the tab and skips the call if its
+  committed site no longer matches the site the level was decided for.
+- **Verification:** `node test-logic.js` passes. The e2e script has a new case 12
+  (a zoom meant for another site is not applied). It passes 21/21 with the fix
+  and fails 20/21 on `1ec8484`. A scratch repro (direct open, JS and 302
+  redirects from another host, cold restart with Chromium's host zoom memory
+  cleared) gave 125% every time even *without* the fix. The real Edge failure
+  was therefore not reproduced, and this fix is unconfirmed for it.
+- **Next:** the user tests the fix in Edge. If 100% still appears, capture a
+  service-worker console log (`onZoomChange`, `onUpdated` status, wrapped
+  `setZoom`) and check whether the tab is in IE mode.
+
+## What changed and why (1.2.0)
 
 The work makes the takeover of browser zoom more reliable. The details are in
 `README.md` ("How It Works").
